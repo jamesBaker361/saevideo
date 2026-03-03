@@ -1,0 +1,24 @@
+custom_pipeline_cosmos_text2world.py
+sbatch -J test --err=slurm_chip/test/custom_pipeline_cosmos_text2world.py_cpu.err --out=slurm_chip/test/custom_pipeline_cosmos_text2world.py_cpu.out runpycpu_chip.sh custom_pipeline_cosmos_text2world.py
+sbatch -J test --err=slurm_chip/test/custom_pipeline_cosmos_text2world.py_gpu.err --out=slurm_chip/test/custom_pipeline_cosmos_text2world.py_gpu.out runpygpu_chip.sh custom_pipeline_cosmos_text2world.py
+
+test_ali.py
+sbatch -J test --err=slurm_chip/test/test_ali.py_cpu.err --out=slurm_chip/test/test_ali.py_cpu.out runpycpu_chip.sh test_ali.py
+sbatch -J test --err=slurm_chip/test/test_ali.py_gpu.err --out=slurm_chip/test/test_ali.py_gpu.out runpygpu_chip.sh test_ali.py
+
+test_cosmos.py
+sbatch -J test --err=slurm_chip/test/test_cosmos.py_cpu.err --out=slurm_chip/test/test_cosmos.py_cpu.out runpycpu_chip.sh test_cosmos.py
+sbatch -J test --err=slurm_chip/test/test_cosmos.py_gpu.err --out=slurm_chip/test/test_cosmos.py_gpu.out runpygpu_chip.sh test_cosmos.py
+
+test_hun.py
+sbatch -J test --err=slurm_chip/test/test_hun.py_cpu.err --out=slurm_chip/test/test_hun.py_cpu.out runpycpu_chip.sh test_hun.py
+sbatch -J test --err=slurm_chip/test/test_hun.py_gpu.err --out=slurm_chip/test/test_hun.py_gpu.out runpygpu_chip.sh test_hun.py
+
+test_mochi.py
+sbatch -J test --err=slurm_chip/test/test_mochi.py_cpu.err --out=slurm_chip/test/test_mochi.py_cpu.out runpycpu_chip.sh test_mochi.py
+sbatch -J test --err=slurm_chip/test/test_mochi.py_gpu.err --out=slurm_chip/test/test_mochi.py_gpu.out runpygpu_chip.sh test_mochi.py
+
+test_wan.py
+sbatch -J test --err=slurm_chip/test/test_wan.py_cpu.err --out=slurm_chip/test/test_wan.py_cpu.out runpycpu_chip.sh test_wan.py
+sbatch -J test --err=slurm_chip/test/test_wan.py_gpu.err --out=slurm_chip/test/test_wan.py_gpu.out runpygpu_chip.sh test_wan.py
+
