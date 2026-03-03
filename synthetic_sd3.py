@@ -1,6 +1,9 @@
 import os
 from accelerate import Accelerator
 from datasets import Dataset
+from experiment_helpers.gpu_details import print_details
+
+print_details()
 
 subject_path="subjects.txt"
 style_path="styles.txt"
