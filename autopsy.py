@@ -17,6 +17,9 @@ if ALI:
     #go through and dissect this one first
     print(type(pipe))
     print(dir(pipe))
+    unet=pipe.unet
+    for name,module in unet.named_modules():
+        print(name,type(module))
     
 
 if COSMOS:

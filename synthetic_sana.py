@@ -8,6 +8,29 @@ from experiment_helpers.gpu_details import print_details
 
 print_details()
 
+import torch
+print("Torch:", torch.__version__)
+print("CUDA version:", torch.version.cuda)
+print("CUDA available:", torch.cuda.is_available())
+
+x = torch.randn(1, 3, 64, 64)
+conv = torch.nn.Conv2d(3, 8, 3)
+
+try:
+    y = conv(x)
+    print("Conv2d works on CPU")
+except Exception as e:
+    print("CPU conv failed:", e)
+
+if torch.cuda.is_available():
+    conv = conv.cuda()
+    x = x.cuda()
+    try:
+        y = conv(x)
+        print("Conv2d works on CUDA")
+    except Exception as e:
+        print("CUDA conv failed:", e)
+
 # ---------------------------
 # CONFIG
 # ---------------------------
@@ -17,7 +40,7 @@ repo_id = "jlbaker361/synthetic-sana"
 limit = 30
 seed = 42
 num_inference_steps = 2
-gpu_batch_size = 4
+gpu_batch_size = 2
 cpu_batch_size = 1
 # ---------------------------
 
@@ -49,7 +72,7 @@ for sub in subject_list:
 # ---------------------------
 # PIPELINE
 # ---------------------------
-dtype = torch.float32 if is_cpu else torch.bfloat16
+dtype = torch.float32 if is_cpu else torch.float16
 batch_size = cpu_batch_size if is_cpu else gpu_batch_size
 
 pipe = SanaSprintPipeline.from_pretrained(
