@@ -63,8 +63,7 @@ generator = torch.Generator(device=device).manual_seed(seed)
 # DISTRIBUTED OR SIMPLE LOOP
 # ---------------------------
 if not is_cpu:
-    # GPU / Multi-GPU mode
-    shard = accelerator.split_between_processes(all_prompts)
+
 
     local_images = []
     local_subjects = []
@@ -73,10 +72,11 @@ if not is_cpu:
 
     start = time.time()
     with torch.no_grad():
-        for i in range(0, len(shard), batch_size):
-            batch = shard[i:i+batch_size]
-            subjects, styles, prompts = zip(*batch)
-
+        for i in range(0, len(all_prompts), batch_size):
+            batch=all_prompts[i:i+batch_size]
+            prompts=[b[2] for b in batch ]
+            subjects=[b[0] for b in batch]
+            styles=[b[1] for b in batch]
             images = pipe(list(prompts), num_inference_steps=num_inference_steps, generator=generator).images
 
             local_images.extend(images)
