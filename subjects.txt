@@ -48,3 +48,151 @@ A cosmic barista
 A marble statue coming to life
 A swamp-dwelling dragonfly knight
 A sentient suit of armor
+A bioluminescent cave mermaid
+A gravity-defying mountain monk
+A rusted war mech abandoned in a forest
+A sentient teapot philosopher
+A shadow merchant in a lantern-lit alley
+A crystalline ice phoenix
+A clock-faced oracle
+A moss giant carrying a cathedral
+A dimension-hopping courier
+A jellybean-colored space explorer
+A thunderstorm embodied as a person
+A porcelain mask spirit
+A sunflower knight
+A submarine city mayor
+A holographic street dancer
+A spell-casting blacksmith
+A cursed scarecrow guardian
+A whale-sized sky manta ray
+A lava-forged titan
+A spider queen made of stained glass
+A runic stone dragon hatchling
+A railway station ghost
+A coral-armored sea knight
+A sentient tarot card reader
+A frost-covered forest guardian
+A chrome-plated panther
+A nebula-born sorcerer
+A bonsai tree that controls time
+A candle-headed librarian
+A sandstorm elemental
+A deep-jungle mech pilot
+A haunted carnival ringmaster
+A mirror-armored paladin
+A sugar skull mariachi queen
+A cathedral-sized turtle
+A storm-chasing inventor
+A rune-carved golem child
+A living topographical map
+A comet-riding archer
+A moss-covered robot gardener
+A bio-luminescent swamp witch
+A crystal ball containing a galaxy
+A clockwork hummingbird swarm
+A starship mechanic raccoon
+A dragon made of paper lanterns
+A haunted porcelain doll
+A mountain carved into a sleeping giant
+A nebula jellyfish monarch
+A cursed gold-mining prospector
+A lighthouse spirit made of fog
+dragon
+unicorn
+phoenix
+griffin
+mermaid
+centaur
+minotaur
+fairy
+wizard
+witch
+knight
+samurai
+ninja
+pirate
+astronaut
+alien
+robot
+android
+cyborg
+superhero
+supervillain
+vampire
+werewolf
+ghost
+zombie
+demon
+angel
+giant
+dwarf
+elf
+goblin
+orc
+troll
+slime creature
+giant spider
+giant snake
+lion
+tiger
+bear
+wolf
+fox
+dog
+cat
+rabbit
+deer
+horse
+elephant
+panda
+monkey
+gorilla
+penguin
+owl
+eagle
+falcon
+parrot
+shark
+whale
+dolphin
+octopus
+jellyfish
+crab
+lobster
+butterfly
+dragonfly
+bee
+ant
+beetle
+ladybug
+snail
+frog
+lizard
+turtle
+dinosaur
+triceratops
+tyrannosaurus rex
+stegosaurus
+pterodactyl
+tree
+flower
+mushroom
+cactus
+mountain
+volcano
+waterfall
+river
+island
+castle
+space station
+flying car
+submarine
+train
+airplane
+hot air balloon
+sailing ship
+treasure chest
+magic sword
+crystal orb
+ancient book
