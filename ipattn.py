@@ -6,7 +6,6 @@ import gc
 import os
 import sys
 sys.path.append(os.path.dirname(__file__))
-from custom_sam_detector import CustomSamDetector
 
 
 import torch
@@ -34,7 +33,6 @@ from diffusers.utils import deprecate, is_torch_xla_available, logging
 from typing import Optional,List
 from diffusers.image_processor import IPAdapterMaskProcessor
 
-from adapter_helpers import get_modules_of_types
 import math
 from typing import Callable, List, Optional, Tuple, Union
 

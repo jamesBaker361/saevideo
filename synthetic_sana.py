@@ -37,7 +37,7 @@ if torch.cuda.is_available():
 subject_path = "subjects.txt"
 style_path = "styles.txt"
 repo_id = "jlbaker361/synthetic-sana"
-limit = 30
+limit = 10000000
 seed = 42
 num_inference_steps = 2
 gpu_batch_size = 2
@@ -106,6 +106,9 @@ if not is_cpu:
             local_subjects.extend(subjects)
             local_styles.extend(styles)
             local_prompts.extend(prompts)
+            if i%100==0:
+                end = time.time()
+                accelerator.print(f"Process {accelerator.process_index} generated {len(local_images)} images in {end-start:.2f}s")
 
     end = time.time()
     accelerator.print(f"Process {accelerator.process_index} generated {len(local_images)} images in {end-start:.2f}s")
@@ -136,6 +139,14 @@ else:
 
     all_prompts = all_prompts_cpu
 
+folder="synthetic-sana"
+os.makedirs(folder,exist_ok=True)
+config="config.csv"
+with open(os.path.join(folder,config),"w") as file:
+    for x,(img,sub,sty,prompt) in enumerate(zip(all_images,all_subjects,all_styles,all_prompts)):
+        path=os.path.join(folder,f"{x}.png")
+        img.save(path)
+        file.write(f"{path},{sub},{sty},{prompt}")
 # ---------------------------
 # PUSH TO HUB
 # ---------------------------
@@ -156,15 +167,12 @@ if accelerator.is_main_process:
             "style": all_styles,
             "prompt": all_prompts,
         },
-        features=features,
     )
 
     timestamp = time.strftime("%Y-%m-%d_%H-%M-%S")
 
     dataset.push_to_hub(
         repo_id,
-        commit_message=f"Synthetic Sana dataset | {len(all_images)} images | steps={num_inference_steps}",
-        revision=f"v_{timestamp}",
     )
 
     print("Upload complete.")

@@ -14,7 +14,14 @@ class HookWrapper:
 
         def save_hook(name):
             def hook(module, input, output):
-                self.activations[name] = output.detach()
+                if name not in self.activations:
+                    self.activations[name]=[]
+                if type(output)==tuple:
+                    output=output[0]
+                try:
+                    self.activations[name].append(output.detach().cpu())
+                except:
+                    print(type(module),type(output))
             return hook
 
         for name, module in net.named_modules():
@@ -29,4 +36,6 @@ class HookWrapper:
 if __name__=="__main__":
     pipe=DiffusionPipeline.from_pretrained("SimianLuo/LCM_Dreamshaper_v7")
     hw=HookWrapper(pipe,['down_blocks.1.attentions.0.transformer_blocks.0.ff.net.0.proj'])
-    hw("hello",**{"num_inference_steps":2})
+    r,act=hw("hello",**{"num_inference_steps":2})
+    print(act['down_blocks.1.attentions.0.transformer_blocks.0.ff.net.0.proj'].size())
+    

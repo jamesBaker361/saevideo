@@ -17,6 +17,8 @@ from PIL import Image
 from torchvision.transforms.functional import to_pil_image
 from transformers import AutoProcessor, CLIPModel
 from compatible_pipelines import CompatibleLatentConsistencyModelPipeline
+from hook_wrapper import HookWrapper
+from dino_extract import dino_model, dino_processor, get_last_hidden_states
 #import ImageReward as RM
 
 
@@ -34,7 +36,7 @@ parser.add_argument("--project_name",type=str,default="seg-ip-sae")
 parser.add_argument("--load_hf",action="store_true",help="whether to load a special pretrained model")
 parser.add_argument("--embedding",type=str, help="ignore unless load from hf; its the embedding type for embedding helpers")
 parser.add_argument("--pretrained_model_path",type=str,default="")
-parser.add_argument("--src_dataset",type=str, default="jlbaker361/ssl-league_captioned_splash-1000-sana")
+parser.add_argument("--src_dataset",type=str, default="jlbaker361/synthetic-sana")
 parser.add_argument("--use_test_split",action="store_true", help="only true for league dataset")
 parser.add_argument("--initial_steps",type=int,default=4,help="how many steps for the initial inference")
 parser.add_argument("--initial_mask_step_list",nargs="*",help="steps to generate mask from",type=int,default=[1,2])
@@ -53,6 +55,16 @@ parser.add_argument("--initial_ip_adapter_scale",type=float,default=0.75)
 parser.add_argument("--background",action="store_true")
 parser.add_argument("--dest_dataset",type=str, default="jlbaker361/monkey-sae")
 parser.add_argument("--object",type=str,default="character")
+
+'''
+TODO:
+> add hooks for diffusion model
+> add hooks to generated dataset 
+
+
+Per this papaer: https://arxiv.org/pdf/2504.15473 
+down_blocks.2.attentions.1, mid_block.attentions.0, up_blocks.1.attentions.0
+'''
 
 def get_mask(layer_index:int, 
              attn_list:list,step:int,
@@ -86,37 +98,6 @@ def get_mask(layer_index:int,
 
     return avg
 
-class ScoreTracker:
-    def __init__(self):
-        self.score_list_dict={
-                "dino_score_unmasked":[],
-                "dino_score_seg_mask":[],
-                "dino_score_raw_mask":[],
-                "dino_score_normal":[],
-                "dino_score_all_steps":[],
-                "text_score_unmasked":[],
-                "text_score_seg_mask":[],
-                "text_score_raw_mask":[],
-                "text_score_normal":[],
-                "text_score_all_steps":[],
-                "image_score_unmasked":[],
-                "image_score_seg_mask":[],
-                "image_score_raw_mask":[],
-                "image_score_normal":[],
-                "image_score_all_steps":[],
-            }
-
-    def update(self,score_dict):
-        for k,v in score_dict.items():
-            self.score_list_dict[k].append(v)
-
-    def get_means(self)-> dict:
-        ret={}
-        for k,v in self.score_list_dict.items():
-            if len(v)>0:
-                ret[k]=np.mean(v)
-
-        return ret
 
 def main(args):
     with torch.no_grad():
@@ -165,40 +146,44 @@ def main(args):
             data=datasets.load_dataset(args.src_dataset,download_mode="force_redownload")
         data=data["train"]
 
-        
-
-        if args.background:
-            background_data=datasets.load_dataset("jlbaker361/real_test_prompt_list",split="train")
-            background_dict={row["prompt"]:row["image"] for row in background_data}
-            accelerator.print("background dict", background_dict)
-
-        score_tracker=ScoreTracker()
-        if args.background:
-            background_score_tracker=ScoreTracker()
+        with open(os.path.join("layer_dir","target_lcm_layers.txt")) as txt:
+            diffusion_layers=[s.strip() for s in txt.readlines()]
+            
+        hw=HookWrapper(pipe,diffusion_layers)
 
         output_dict={
         "image":[],
         "mask":[],
-        "mask_int":[]
+        "mask_int":[],
+        "dino":[]
         }
+        for diff in diffusion_layers:
+            output_dict[diff]=[]
 
         for k,row in enumerate(data):
             if k==args.limit:
                 break
-            reset_monkey(pipe)
+            reset_monkey(hw.pipe)
             ip_adapter_image=row["image"]
+            
+            dino=get_last_hidden_states(ip_adapter_image,dino_processor,dino_model)
+            output_dict["dino"].append(dino.cpu().detach().numpy())
+            
             object=args.object
             if "object" in row:
                 object=row["object"]
             prompt=object+real_test_prompt_list[k % len(real_test_prompt_list)]
-            if args.background:
-                background_image=background_dict[prompt.replace(object,"")]
-                prompt=" "
+
             generator=torch.Generator()
             generator.manual_seed(123)
             set_ip_adapter_scale_monkey(pipe,0.5)
             accelerator.print("inital image")
-            initial_image=pipe(prompt,args.dim,args.dim,args.initial_steps,ip_adapter_image=ip_adapter_image,generator=generator).images[0]
+            initial_image,act=hw(prompt,args.dim,args.dim,args.initial_steps,ip_adapter_image=ip_adapter_image,generator=generator)
+            for diff in diffusion_layers:
+                output_dict[diff].append([k.numpy() for k in act[diff]])
+            initial_image=initial_image.images[0]
+            for k,v in act.items():
+                print(k,len(v),v[0].size())
 
             mask=sum([get_mask(args.layer_index,attn_list,step,args.token,args.dim,args.threshold) for step in args.initial_mask_step_list])
             tiny_mask=mask.clone()
@@ -226,17 +211,7 @@ def main(args):
             
             
         Dataset.from_dict(output_dict).push_to_hub(args.dest_dataset)
-        accelerator.print("Average Scores:")
-        accelerator.print(len(avg_score_dict))
-        for k,v in avg_score_dict.items():
-            accelerator.print(k,float(v))
-        if args.background:
-            avg_score_dict=background_score_tracker.get_means()
 
-            accelerator.print("Background Average Scores:")
-            accelerator.print(len(avg_score_dict))
-            for k,v in avg_score_dict.items():
-                accelerator.print(k,float(v))
 
 
 
