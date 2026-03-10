@@ -84,7 +84,9 @@ def main(args):
         for layer in model_layers:
             output_dict[layer]=[]
         
-        for batch in data:
+        for b,batch in enumerate(data):
+            if b==args.limit:
+                break
             video,act=hooked_pipe(batch, **kwargs)
             
 
