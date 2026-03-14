@@ -158,7 +158,8 @@ def main(args):
         "dino":[]
         }
         for diff in diffusion_layers:
-            output_dict[diff]=[]
+            for step in range(args.initial_steps):
+                output_dict[f"{diff}_{step}"]=[]
 
         for k,row in enumerate(data):
             if k==args.limit:
@@ -180,10 +181,11 @@ def main(args):
             accelerator.print("inital image")
             initial_image,act=hw(prompt,args.dim,args.dim,args.initial_steps,ip_adapter_image=ip_adapter_image,generator=generator)
             for diff in diffusion_layers:
-                output_dict[diff].append([k.numpy() for k in act[diff]])
+                for step in range(args.initial_steps):
+                    
+                    output_dict[f"{diff}_{step}"].extend(act[diff][step].numpy())
+                    
             initial_image=initial_image.images[0]
-            for k,v in act.items():
-                print(k,len(v),v[0].size())
 
             mask=sum([get_mask(args.layer_index,attn_list,step,args.token,args.dim,args.threshold) for step in args.initial_mask_step_list])
             tiny_mask=mask.clone()
