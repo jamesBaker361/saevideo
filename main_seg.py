@@ -1,3 +1,5 @@
+#uses ip adapter images to generate features of stuff
+
 import os
 import sys
 import argparse
@@ -55,6 +57,9 @@ parser.add_argument("--initial_ip_adapter_scale",type=float,default=0.75)
 parser.add_argument("--background",action="store_true")
 parser.add_argument("--dest_dataset",type=str, default="jlbaker361/monkey-sae")
 parser.add_argument("--object",type=str,default="character")
+parser.add_argument("--save_dir",type=str,default="seg_ip")
+parser.add_argument("--src_dir",type=str,default="synthetic-sana2")
+parser.add_argument("--hf_data",action="store_true")
 
 '''
 TODO:
@@ -140,11 +145,16 @@ def main(args):
         attn_list=get_modules_of_types(pipe.unet,Attention)
 
         #monkey_attn_list=get_modules_of_types(pipe.unet,MonkeyIPAttnProcessor)
-        try:
-            data=datasets.load_dataset(args.src_dataset)
-        except:
-            data=datasets.load_dataset(args.src_dataset,download_mode="force_redownload")
-        data=data["train"]
+        
+        if args.hf_data:
+            try:
+                data=datasets.load_dataset(args.src_dataset)
+            except:
+                data=datasets.load_dataset(args.src_dataset,download_mode="force_redownload")
+            data=data["train"]
+        else:
+            path_list=[file for file in os.listdir(args.src_dir) if file.endswith("png")][:args.limit]
+            data=[{"image":Image.open(os.path.join(args.src_dir,file)) }for file in path_list]
 
         with open(os.path.join("layer_dir","target_lcm_layers.txt")) as txt:
             diffusion_layers=[s.strip() for s in txt.readlines()]
@@ -160,6 +170,18 @@ def main(args):
         for diff in diffusion_layers:
             for step in range(args.initial_steps):
                 output_dict[f"{diff}_{step}"]=[]
+                
+        os.makedirs(args.save_dir,mode=0o777,exist_ok=True)
+    
+        for n in range(args.initial_steps):
+            os.makedirs(os.path.join(args.save_dir,str(n)),exist_ok=True)
+            
+        for key in ["image","mask","mask_int"]:
+            os.makedirs(os.path.join(args.save_dir,key),exist_ok=True)
+            
+        os.makedirs(os.path.join(args.save_dir,"dino"))
+        
+        
 
         for k,row in enumerate(data):
             if k==args.limit:
@@ -184,6 +206,11 @@ def main(args):
                 for step in range(args.initial_steps):
                     
                     output_dict[f"{diff}_{step}"].extend(act[diff][step].numpy())
+                    
+            for step in range(args.initial_steps):
+                path=os.path.join(args.save_dir,str(step),f"{k}.npz")
+                results={k:v[step] for k,v in act.items()}
+                np.savez(path,**results)
                     
             initial_image=initial_image.images[0]
 
@@ -210,6 +237,10 @@ def main(args):
             output_dict["image"].append(initial_image)
             output_dict["mask"].append(mask_pil) 
             output_dict["mask_int"].append(mask_int_pil)
+            
+            for (key,array) in zip(["mask","dino"],[mask,dino]):
+                path=os.path.join(args.save_dir,key,f"{k}")
+                np.save(path,array.cpu().detach().numpy())
             
             
         Dataset.from_dict(output_dict).push_to_hub(args.dest_dataset)

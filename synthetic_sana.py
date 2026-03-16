@@ -36,7 +36,7 @@ if torch.cuda.is_available():
 # ---------------------------
 subject_path = "subjects.txt"
 style_path = "styles.txt"
-repo_id = "jlbaker361/synthetic-sana"
+repo_id = "jlbaker361/synthetic-sana2"
 limit = 10000000
 seed = 42
 num_inference_steps = 2
@@ -83,13 +83,13 @@ pipe = SanaSprintPipeline.from_pretrained(
 generator = torch.Generator(device=device).manual_seed(seed)
 count=0
 
-folder="synthetic-sana"
+folder="synthetic-sana2"
 os.makedirs(folder,exist_ok=True)
 config="config.csv"
-if os.path.exists(os.path.join(folder,config)):
-    with open(os.path.join(folder,config),"r") as rf:
-        count=len(rf.readlines())
-with open(os.path.join(folder,config),"a") as file:
+count=len([f for f in os.listdir(folder) if f.endswith("png")])
+        
+print("count ",count)
+with open(os.path.join(folder,config),"a",buffering=1) as file:
     
 
 # ---------------------------
@@ -123,12 +123,12 @@ with open(os.path.join(folder,config),"a") as file:
                     end = time.time()
                     accelerator.print(f"Process {accelerator.process_index} generated {len(local_images)} images in {end-start:.2f}s")
                     
-                    for x,(img,sub,sty,prompt) in enumerate(zip(local_images,local_subjects,local_styles,local_prompts)):
-                        path=os.path.join(folder,f"{x+count}.png")
-                        img.save(path)
-                        file.write(f"{path},{sub},{sty},{prompt}")
+                for x,(img,sub,sty,prompt) in enumerate(zip(images,subjects,styles,prompts)):
+                    path=os.path.join(folder,f"{count}.png")
+                    img.save(path)
+                    file.write(f"{path},{sub},{sty},{prompt}\n")
+                    count+=1
                         
-                    count+=len(local_images)
                 
 
         end = time.time()

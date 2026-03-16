@@ -23,7 +23,7 @@ names=[name for name,module in unet.named_modules()]
 
 hw=HookWrapper(pipe,names)
 
-_,act=hw("image",num_inference_steps=12, height=128,width=128)
+_,act=hw("image",num_inference_steps=12, height=256,width=256)
 
 for k,v in act.items():
-    print(k,v.size())
+    print(k,v[0].size())
