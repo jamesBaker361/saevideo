@@ -88,7 +88,7 @@ os.makedirs(folder,exist_ok=True)
 config="config.csv"
 count=len([f for f in os.listdir(folder) if f.endswith("png")])
         
-print("count ",count)
+print("count ",count,f"/{len(all_prompts)*batch_size}")
 with open(os.path.join(folder,config),"a",buffering=1) as file:
     
 
@@ -121,7 +121,7 @@ with open(os.path.join(folder,config),"a",buffering=1) as file:
                 local_prompts.extend(prompts)
                 if i%100==0:
                     end = time.time()
-                    accelerator.print(f"Process {accelerator.process_index} generated {len(local_images)} images in {end-start:.2f}s")
+                    accelerator.print(f"Process {accelerator.process_index} generated {len(local_images)+count} images in {end-start:.2f}s")
                     
                 for x,(img,sub,sty,prompt) in enumerate(zip(images,subjects,styles,prompts)):
                     path=os.path.join(folder,f"{count}.png")

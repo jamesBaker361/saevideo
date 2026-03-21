@@ -83,7 +83,7 @@ def main(args):
                 break
             img,act=hw(row[text_key][0],height=args.size,width=args.size,num_inference_steps=args.num_inference_steps) 
             img_path=os.path.join(args.save_dir,"images",f"{r}.png")
-            img.save(img_path)
+            img.images[0].save(img_path)
             for n in range(args.num_inference_steps):
                 results={k:v[n] for k,v in act.items()}
                 path=os.path.join(args.save_dir,str(n),f"act_{r}.npz")

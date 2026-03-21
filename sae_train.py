@@ -94,12 +94,15 @@ def main(args):
 
     dataset= LatentLocalDataset(args.src_dir,0,args.model_layer,False)
     
-    train_loader,test_loader,val_loader=split_data(dataset,0.8,args.batch_size)
+    train_loader,test_loader,val_loader=split_data(dataset,0.95,args.batch_size)
     
     for batch in train_loader:
         break
     
     activations=batch["act"]
+    act_size=activations.size()
+        
+    print("activation size ",act_size)
     if args.flatten:
         activations=activations.flatten(1)
     else:

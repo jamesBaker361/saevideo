@@ -179,7 +179,7 @@ def main(args):
         for key in ["image","mask","mask_int"]:
             os.makedirs(os.path.join(args.save_dir,key),exist_ok=True)
             
-        os.makedirs(os.path.join(args.save_dir,"dino"))
+        os.makedirs(os.path.join(args.save_dir,"dino"),exist_ok=True)
         
         
 
@@ -221,7 +221,8 @@ def main(args):
 
             mask=F.interpolate(mask.unsqueeze(0).unsqueeze(0), size=(args.dim, args.dim), mode="nearest").squeeze(0).squeeze(0)
 
-            
+            img_path=os.path.join(args.save_dir,"image",f"{k}.png")
+            initial_image.save(img_path)
 
             mask_pil=to_pil_image(1-mask)
             color_rgba = initial_image.convert("RGB")
