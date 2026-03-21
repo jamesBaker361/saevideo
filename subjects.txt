@@ -196,3 +196,17 @@ treasure chest
 magic sword
 crystal orb
 ancient book
+man
+woman
+child
+teenager
+old man
+old woman
+lawyer
+doctor
+chef
+firefighter
+policeman
+waiter
+waitress
+baby
