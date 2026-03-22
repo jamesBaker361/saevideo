@@ -58,7 +58,7 @@ parser.add_argument("--background",action="store_true")
 parser.add_argument("--dest_dataset",type=str, default="jlbaker361/monkey-sae")
 parser.add_argument("--object",type=str,default="character")
 parser.add_argument("--save_dir",type=str,default="seg_ip")
-parser.add_argument("--src_dir",type=str,default="synthetic-sana2")
+parser.add_argument("--src_dir",type=str,default="synthetic_sana_synth_txt")
 parser.add_argument("--hf_data",action="store_true")
 
 '''

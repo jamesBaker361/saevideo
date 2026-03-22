@@ -5,8 +5,18 @@ from accelerate import Accelerator
 from datasets import Dataset, Features, Image, Value
 from diffusers import SanaSprintPipeline
 from experiment_helpers.gpu_details import print_details
+import sys
+from datasets import load_dataset
+import argparse
 
 print_details()
+
+parser=argparse.ArgumentParser()
+parser.add_argument("--folder",type=str,default="synthetic-sana2")
+parser.add_argument("--dataset",type=str,default="txt")
+
+args=parser.parse_args()
+
 
 import torch
 print("Torch:", torch.__version__)
@@ -52,22 +62,31 @@ is_cpu = device.type == "cpu"
 if accelerator.is_main_process:
     print(f"Running on device: {device}")
 
-# Load prompts
-with open(subject_path, "r") as f:
-    subject_list = [s.strip() for s in f.readlines()]
+if args.dataset=='txt':
+    # Load prompts
+    with open(subject_path, "r") as f:
+        subject_list = [s.strip() for s in f.readlines()]
 
-with open(style_path, "r") as f:
-    style_list = [s.strip() for s in f.readlines()]
+    with open(style_path, "r") as f:
+        style_list = [s.strip() for s in f.readlines()]
 
-# Build prompt list
-all_prompts = []
-for sub in subject_list:
-    for sty in style_list:
-        all_prompts.append((sub, sty, f"{sub}, {sty}"))
+    # Build prompt list
+    all_prompts = []
+    for sub in subject_list:
+        for sty in style_list:
+            all_prompts.append((sub, sty, f"{sub}, {sty}"))
+            if len(all_prompts) >= limit:
+                break
         if len(all_prompts) >= limit:
             break
-    if len(all_prompts) >= limit:
-        break
+elif args.dataset=='flickr':
+    data=load_dataset("AnyModal/flickr30k",split="train")
+    all_prompts=[row["alt_text"][0] for row in data]
+elif args.dataset=='laion':
+    data=load_dataset("guangyil/laion-coco-aesthetic",split="train")
+    all_prompts=[row["TEXT"] for row in data]
+else:
+    print("unrezognized datasset",args.dataset)
 
 # ---------------------------
 # PIPELINE
@@ -83,7 +102,7 @@ pipe = SanaSprintPipeline.from_pretrained(
 generator = torch.Generator(device=device).manual_seed(seed)
 count=0
 
-folder="synthetic-sana2"
+folder=args.folder
 os.makedirs(folder,exist_ok=True)
 config="config.csv"
 count=len([f for f in os.listdir(folder) if f.endswith("png")])

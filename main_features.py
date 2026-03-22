@@ -47,6 +47,7 @@ parser.add_argument("--num_inference_steps",type=int,default=4)
 parser.add_argument("--data",type=str,default="AnyModal/flickr30k")
 parser.add_argument("--size",type=int,default=256)
 parser.add_argument("--layer_set",type=str,default=DREAMSHAPER,help="")
+parser.add_argument("--n_steps",type=int,default=4)
 
 def main(args):
     api,accelerator,device=repo_api_init(args)
@@ -57,6 +58,8 @@ def main(args):
     pipe.enable_model_cpu_offload()
     layers=layer_dict[args.layer_set]
     hw=HookWrapper(pipe,layers)
+    
+    
     
     data=load_dataset(args.data,split="train")
     
@@ -73,6 +76,10 @@ def main(args):
     
     text_key="alt_text"
     
+    step=args.num_inference_steps//args.n_steps
+    
+    save_steps=[k for k in range(0,args.num_inference_steps,step)]
+    
     if args.data=="guangyil/laion-coco-aesthetic":
         text_key="TEXT"
     with torch.no_grad():
@@ -85,9 +92,10 @@ def main(args):
             img_path=os.path.join(args.save_dir,"images",f"{r}.png")
             img.images[0].save(img_path)
             for n in range(args.num_inference_steps):
-                results={k:v[n] for k,v in act.items()}
-                path=os.path.join(args.save_dir,str(n),f"act_{r}.npz")
-                np.savez(path,**results)
+                if n in save_steps:
+                    results={k:v[n] for k,v in act.items()}
+                    path=os.path.join(args.save_dir,str(n),f"act_{r}.npz")
+                    np.savez(path,**results)
     
 
 if __name__=='__main__':

@@ -29,7 +29,7 @@ parser.add_argument("--nb_concepts",type=int,default=10000,help="n concepts for 
 parser.add_argument("--sae_model",type=str,default=KSAE)
 parser.add_argument("--model_layer",type=str,default="up_blocks.1.attentions.0")
 parser.add_argument("--local_global_split",action="store_true",help="if yes, split the concepts into global and local components; global need to be the same across time and/or location")
-parser.add_argument("--src_dir",type=str,default="features_SimianLuo_LCM_Dreamshaper_v7_mini")
+parser.add_argument("--src_dir",type=str,default="seg_ip")
 parser.add_argument("--dino",action="store_true",help="whether to use dino embeddings too")
 parser.add_argument("--mask",action="store_true",help="whether to mask out irrelevant tensors")
 parser.add_argument("--flatten",action="store_true",help="whether to do the whole image at once or do channel by channel")
@@ -49,21 +49,29 @@ class LatentDataset(torch.utils.data.Dataset):
     def __getitem__(self, index):
         return torch.tensor(self.data[self.model_layer][index])
     
+import re
+import os
+
+def get_num(path):
+    name = os.path.basename(path)
+    nums = re.findall(r'\d+', name)
+    return int(nums[-1])  # last number in filename
+    
 class LatentLocalDataset(torch.utils.data.Dataset):
-    def __init__(self,src_dir:str,step:int,model_layer:str,dino_mask:bool):
+    def __init__(self,src_dir:str,step:int,model_layer:str,dino_mask:bool,limit:int):
         self.model_layer=model_layer
         self.src_dir=src_dir
         super().__init__()
         self.np_list=[
             os.path.join(src_dir,str(step),f) for f in os.listdir(os.path.join(src_dir,str(step))) if f.endswith("npz")
-        ]
+        ][:limit]
         self.dino_mask=dino_mask
         if dino_mask:
             self.dino_list=[
-                os.path.join(src_dir,"dino",f) for f in os.listdir(os.path.join(src_dir,"dino")) if f.endswith("np")
+                os.path.join(src_dir,"dino",f) for f in os.listdir(os.path.join(src_dir,"dino")) if f.endswith("npy")
             ]
             self.mask_list=[
-                os.path.join(src_dir,"mask",f) for f in os.listdir(os.path.join(src_dir,"mask")) if f.endswith("np")
+                os.path.join(src_dir,"mask",f) for f in os.listdir(os.path.join(src_dir,"mask")) if f.endswith("npy")
             ]
 
     def __len__(self):
@@ -71,9 +79,11 @@ class LatentLocalDataset(torch.utils.data.Dataset):
     
     def __getitem__(self, index):
         ret={"act": torch.tensor(np.load(self.np_list[index])[self.model_layer])}
+        num=get_num(self.np_list[index])
+        print("num",num, self.np_list[index] )
         if self.dino_mask:
-            ret["dino"]=torch.tensor(np.load(self.dino_list[index]))
-            ret["mask"]=torch.tensor(np.load(self.mask_list[index]))
+            ret["dino"]=torch.tensor(np.load(os.path.join(self.src_dir,"dino",f"{num}.npy")))
+            ret["mask"]=torch.tensor(np.load(os.path.join(self.src_dir,"mask",f"{num}.npy")))
             
         return ret
     
@@ -92,7 +102,7 @@ def main(args):
         KSAE:losses.mse_l1 #TODO: find losses for other models
     }
 
-    dataset= LatentLocalDataset(args.src_dir,0,args.model_layer,False)
+    dataset= LatentLocalDataset(args.src_dir,0,args.model_layer,args.dino or args.mask,args.limit)
     
     train_loader,test_loader,val_loader=split_data(dataset,0.95,args.batch_size)
     
