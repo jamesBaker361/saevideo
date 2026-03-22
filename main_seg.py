@@ -1,6 +1,7 @@
 #uses ip adapter images to generate features of stuff
 
 import os
+os.environ["TQDM_DISABLE"] = "1"
 import sys
 import argparse
 from experiment_helpers.gpu_details import print_details

@@ -1,4 +1,5 @@
 import os
+os.environ["TQDM_DISABLE"] = "1"
 import time
 import torch
 from accelerate import Accelerator

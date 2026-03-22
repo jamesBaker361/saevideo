@@ -33,6 +33,14 @@ class HookWrapper:
         result=self.pipe(*args,**kwargs)
         return result,self.activations
     
+class HookForward:
+    def __init__(self,pipe:DiffusionPipeline, layers:list[str],sae_list:list[torch.nn.Module]):
+        self.pipe=pipe
+        self.layers=layers
+        
+    
+    
+    
 if __name__=="__main__":
     pipe=DiffusionPipeline.from_pretrained("SimianLuo/LCM_Dreamshaper_v7")
     hw=HookWrapper(pipe,['down_blocks.1.attentions.0.transformer_blocks.0.ff.net.0.proj'])

@@ -7,6 +7,7 @@ from experiment_helpers.init_helpers import repo_api_init,default_parser,parse_a
 import time
 from datasets import load_dataset
 import os
+os.environ["TQDM_DISABLE"] = "1"
 import numpy as np
 import torch
 

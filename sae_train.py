@@ -78,7 +78,7 @@ class LatentLocalDataset(torch.utils.data.Dataset):
         return len(self.np_list)
     
     def __getitem__(self, index):
-        ret={"act": torch.tensor(np.load(self.np_list[index])[self.model_layer])}
+        ret={"act": torch.tensor(np.load(self.np_list[index])[self.model_layer][0])}
         num=get_num(self.np_list[index])
         print("num",num, self.np_list[index] )
         if self.dino_mask:
@@ -116,7 +116,7 @@ def main(args):
     if args.flatten:
         activations=activations.flatten(1)
     else:
-        activations=activations.view(0,2,3,1).flatten(0,2)
+        activations=activations.permute(0,2,3,1).flatten(0,2)
         
     act_size=activations.size()
     
@@ -136,6 +136,8 @@ def main(args):
         dino_sae_model=sae_model_class(dino.size()[1:],args.nb_concepts,device=device)
         params.extend([p for p in dino_sae_model.parameters()])
         model_dict["dino_sae"]=dino_sae_model
+        print("dino size",batch["dino"].size())
+        print("mask size ",batch["mask"].size())
     
     z_pre, z, x_hat=sae_model(batch)
     dead_tracker = DeadCodeTracker(z.size()[1], device)
@@ -175,7 +177,7 @@ def main(args):
             if args.flatten:
                 activations=activations.flatten(1)
             else:
-                activations=activations.view(0,2,3,1).flatten(0,2)
+                activations=activations.permute(0,2,3,1).flatten(0,2)
                 
 
             optimizer.zero_grad()
@@ -192,7 +194,7 @@ def main(args):
                     
                         if args.mask:
                             dino=dino*mask
-                        dino=dino.view(0,2,3,1).flatten(0,2)
+                        dino=dino.permute(0,2,3,1).flatten(0,2)
                         
                     z_pre_dino, z_dino, x_hat_dino=dino_sae_model(dino)
                     
