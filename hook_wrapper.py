@@ -33,11 +33,41 @@ class HookWrapper:
         result=self.pipe(*args,**kwargs)
         return result,self.activations
     
+class MonkeyModule(torch.nn.Module):
+    def __init__(self, underlying:torch.nn.Module,weight:float,*args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.underlying=underlying
+        self.output=None
+        self.weight=weight
+        
+    def forward(self,*args,**kwargs):
+        result=self.underlying(*args,**kwargs)
+        if type(result) is tuple:
+            residual,result=result
+            result=(self.weight*self.output)+((1-self.weight)*self.output)
+            return (residual,result)
+        else:
+            result=(self.weight*self.output)+((1-self.weight)*self.output)
+            return result
+        
+
 class HookForward:
-    def __init__(self,pipe:DiffusionPipeline, layers:list[str],sae_list:list[torch.nn.Module]):
+    def __init__(self,pipe:DiffusionPipeline, layers:list[str],sae_list:list[torch.nn.Module],shape_list:list,weight:float):
         self.pipe=pipe
         self.layers=layers
+        self.sae_list=sae_list
         
+        
+        for l in self.layers:
+            if self.pipe.unet.getattr(l,None) is not None:
+                self.pipe.unet.setattr(l,MonkeyModule(self.pipe.unet.getattr(l),weight))
+    
+    def forward(self,sae_src:torch.Tensor,*args,**kwargs):
+        for layer,sae,shape in zip(self.layers,self.sae_list,self.shape_list):
+            output=sae(sae_src).reshape(shape)
+            getattr(self.pipe.unet,layer).output=output
+        
+        return self.pipe(*args,**kwargs)    
     
     
     
