@@ -11,6 +11,7 @@ from overcomplete.sae import TopKSAE,QSAE, JumpSAE, BatchTopKSAE,losses
 from overcomplete.sae.trackers import DeadCodeTracker
 import numpy as np
 import torch.nn.functional as F
+import json
 
 #https://github.com/KempnerInstitute/overcomplete
 
@@ -39,6 +40,7 @@ parser.add_argument("--dino_coefficient",type=float,default=0.1)
 parser.add_argument("--pooling",type=str,default="avg")
 parser.add_argument("--threshold",type=float,default=0.5)
 parser.add_argument("--checkpoint",type=str,default="SimianLuo/LCM_Dreamshaper_v7",help=" dreamshaper ")
+parser.add_argument("--step",type=int,default=0)
 
 class LatentDataset(torch.utils.data.Dataset):
     def __init__(self,hf_dataset,model_layer):
@@ -68,7 +70,12 @@ class LatentLocalDataset(torch.utils.data.Dataset):
         self.np_list=[
             os.path.join(src_dir,str(step),f) for f in os.listdir(os.path.join(src_dir,str(step))) if f.endswith("npz")
         ][:limit]
-        raw_activations=torch.tensor(np.load(os.path.join(args.src_dir, "0","0.npz"))[args.model_layer][0])
+        prefix=""
+        try:
+            raw_activations=torch.tensor(np.load(os.path.join(args.src_dir, "0",f"{prefix}0.npz"))[args.model_layer][0])
+        except:
+            prefix="act_"
+            raw_activations=torch.tensor(np.load(os.path.join(args.src_dir, "0",f"{prefix}0.npz"))[args.model_layer][0])
         act_size=raw_activations.size()
         (c,h,w)=act_size
         self.h=h
@@ -104,11 +111,11 @@ class LatentLocalDataset(torch.utils.data.Dataset):
         if self.mask:
             mask=np.load(os.path.join(self.src_dir,"mask",f"{num}.npy"))
             ret["mask"] = torch.tensor(mask).unsqueeze(0)
-            print("mask size",ret["mask"].size())
+            #print("mask size",ret["mask"].size())
             ret["mask"]=self.pool(ret["mask"],kernel_size=self.kernel,stride=self.kernel)
             ret["mask"] = (ret["mask"] > self.threshold).to(torch.uint8)
-            print("mask size",ret["mask"].size())
-            print("act size ",ret["act"].size())
+            #print("mask size",ret["mask"].size())
+            #print("act size ",ret["act"].size())
             ret["act"]=ret["mask"]*ret["act"]
         if self.flatten:
             ret["act"]=ret["act"].flatten()
@@ -139,7 +146,7 @@ def main(args):
         KSAE:losses.mse_l1 #TODO: find losses for other models
     }[args.sae_model]
 
-    dataset= LatentLocalDataset(args.src_dir,0,args.model_layer,args.dino,args.mask,args.limit,args.flatten,args.pooling,args.threshold)
+    dataset= LatentLocalDataset(args.src_dir,args.step,args.model_layer,args.dino,args.mask,args.limit,args.flatten,args.pooling,args.threshold)
     
     train_loader,test_loader,val_loader=split_data(dataset,0.95,args.batch_size)
     
@@ -148,7 +155,10 @@ def main(args):
     
     print("real activation size ",batch["act"].size())
     
-    raw_activations=torch.tensor(np.load(os.path.join(args.src_dir, "0","0.npz"))[args.model_layer][0])
+    try:
+        raw_activations=torch.tensor(np.load(os.path.join(args.src_dir, "0","0.npz"))[args.model_layer][0])
+    except:
+        raw_activations=torch.tensor(np.load(os.path.join(args.src_dir, "0","act_0.npz"))[args.model_layer][0])
     act_size=raw_activations.size()
     (c,h,w)=act_size
         
@@ -192,12 +202,51 @@ def main(args):
     else:
         optimizer,sae_model,train_loader,test_loader,val_loader = accelerator.prepare(optimizer,sae_model,train_loader,test_loader,val_loader)
 
-    save_subdir=os.path.join(args.save_dir,args.repo_id)
+    save_subdir=os.path.join(args.save_dir)
     os.makedirs(save_subdir,exist_ok=True)
     
-    save,load=save_and_load_functions(
-        model_dict
-        ,save_subdir,api,args.repo_id)
+
+
+    def save(epoch: int):
+        os.makedirs(save_subdir, exist_ok=True)
+
+        weights_path = os.path.join(save_subdir, "weights.pt")
+        config_path = os.path.join(save_subdir, "config.json")
+
+        # save model weights
+        torch.save(sae_model.state_dict(), weights_path)
+
+        # optional DINO weights
+        if args.dino:
+            dino_weights_path = os.path.join(save_subdir, "dino_weights.pt")
+            torch.save(dino_sae_model.state_dict(), dino_weights_path)
+
+        # save config
+        with open(config_path, "w") as file:
+            json.dump({
+                "epoch": epoch
+            }, file)
+
+
+    def load(load_dir):
+        weights_path = os.path.join(load_dir, "weights.pt")
+        config_path = os.path.join(load_dir, "config.json")
+
+        # load weights
+        sae_model.load_state_dict(torch.load(weights_path))
+
+        # optional DINO
+        if args.dino:
+            dino_weights_path = os.path.join(load_dir, "dino_weights.pt")
+            if os.path.exists(dino_weights_path):
+                dino_sae_model.load_state_dict(torch.load(dino_weights_path))
+
+        # load config
+        with open(config_path, "r") as file:
+            config = json.load(file)
+
+        return config.get("epoch", 0)
+        
     
     start_epoch=load(False)
 
@@ -206,15 +255,16 @@ def main(args):
         val_loader,test_loader,save,start_epoch
     )
     def batch_function(batch,training,helpful_dict):
-        if training:
-            activations=batch["act"].to(device)
+        
+        activations=batch["act"].to(device)
+        if not args.flatten:
+            activations=activations.flatten(0,1)
+            
+        if args.dino:
+            dino=batch["dino"].to(device)
             if not args.flatten:
-                activations=activations.flatten(0,1)
-                
-            if args.dino:
-                dino=batch["dino"].to(device)
-                if not args.flatten:
-                    dino=dino.flatten(0,1)
+                dino=dino.flatten(0,1)
+        if training:
             optimizer.zero_grad()
             with accelerator.accumulate(params):
                 with accelerator.autocast():
@@ -231,16 +281,28 @@ def main(args):
                         
                         loss+=difference+dino_loss
                         
-                        
                     
                     accelerator.backward(loss)
                     optimizer.step()
-                        
-                    
                     dead_tracker.update(z)
         else:
             with torch.no_grad():     
-                loss=torch.tensor(0) #placeholder
+                z_pre, z, x_hat=sae_model(activations)
+                    
+                loss=criterion(activations, x_hat, z_pre, z, sae_model.get_dictionary())
+                
+                if args.dino: 
+                    z_pre_dino, z_dino, x_hat_dino=dino_sae_model(dino)
+                    
+                    dino_loss=criterion(dino,x_hat_dino,z_pre_dino,z_dino,dino_sae_model.get_dictionary())
+                    
+                    difference=args.dino_coefficient*F.mse_loss(z_dino,z)
+                    
+                    loss+=difference+dino_loss
+                    
+                    accelerator.log({
+                            "dino_loss":dino_loss.cpu().detach().numpy()
+                        })
                 
         return loss.cpu().detach().numpy()
         

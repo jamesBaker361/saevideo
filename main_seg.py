@@ -1,7 +1,7 @@
 #uses ip adapter images to generate features of stuff
 
 import os
-os.environ["TQDM_DISABLE"] = "1"
+#os.environ["TQDM_DISABLE"] = "1"
 import sys
 import argparse
 from experiment_helpers.gpu_details import print_details
@@ -154,8 +154,8 @@ def main(args):
                 data=datasets.load_dataset(args.src_dataset,download_mode="force_redownload")
             data=data["train"]
         else:
-            path_list=[file for file in os.listdir(args.src_dir) if file.endswith("png")][:args.limit]
-            data=[{"image":Image.open(os.path.join(args.src_dir,file)) }for file in path_list]
+            data=[{"path":file} for file in os.listdir(args.src_dir) if file.endswith("png")][:args.limit]
+            #data=[{"image":Image.open(os.path.join(args.src_dir,file)) }for file in path_list]
 
         with open(os.path.join("layer_dir","target_lcm_layers.txt")) as txt:
             diffusion_layers=[s.strip() for s in txt.readlines()]
@@ -182,13 +182,20 @@ def main(args):
             
         os.makedirs(os.path.join(args.save_dir,"dino"),exist_ok=True)
         
+        count=len([f for f in os.listdir(os.path.join(args.save_dir,"dino")) if f.endswith("npz")])
         
+        print(f"found {count} different images")
 
         for k,row in enumerate(data):
+            if k<count:
+                continue
             if k==args.limit:
                 break
             reset_monkey(hw.pipe)
-            ip_adapter_image=row["image"]
+            if "image" in row:
+                ip_adapter_image=row["image"]
+            else:
+                ip_adapter_image=Image.open(os.path.join(args.src_dir,row["path"]))
             
             dino=get_last_hidden_states(ip_adapter_image,dino_processor,dino_model)
             output_dict["dino"].append(dino.cpu().detach().numpy())
@@ -201,7 +208,6 @@ def main(args):
             generator=torch.Generator()
             generator.manual_seed(123)
             set_ip_adapter_scale_monkey(pipe,0.5)
-            accelerator.print("inital image")
             initial_image,act=hw(prompt,args.dim,args.dim,args.initial_steps,ip_adapter_image=ip_adapter_image,generator=generator)
             for diff in diffusion_layers:
                 for step in range(args.initial_steps):
