@@ -14,6 +14,7 @@ accelerator =accelerate.Accelerator()
 output_data={}
 
 for checkpoint in ["SimianLuo/LCM_Dreamshaper_v7","Lykon/dreamshaper-7","stabilityai/stable-diffusion-xl-base-1.0","stablediffusionapi/realistic-vision-v51"]:
+    print("\n\n\n\n")
     output_data[checkpoint]={}
 
     pipe =DiffusionPipeline.from_pretrained(checkpoint).to(accelerator.device)

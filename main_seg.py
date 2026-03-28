@@ -182,7 +182,7 @@ def main(args):
             
         os.makedirs(os.path.join(args.save_dir,"dino"),exist_ok=True)
         
-        count=len([f for f in os.listdir(os.path.join(args.save_dir,"dino")) if f.endswith("npz")])
+        count=len([f for f in os.listdir(os.path.join(args.save_dir,"dino")) if f.endswith("npy")])
         
         print(f"found {count} different images")
 

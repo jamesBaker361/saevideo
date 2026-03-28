@@ -202,7 +202,7 @@ def main(args):
     else:
         optimizer,sae_model,train_loader,test_loader,val_loader = accelerator.prepare(optimizer,sae_model,train_loader,test_loader,val_loader)
 
-    save_subdir=os.path.join(args.save_dir)
+    save_subdir=os.path.join("sae_model",args.save_dir)
     os.makedirs(save_subdir,exist_ok=True)
     
 
@@ -228,24 +228,27 @@ def main(args):
             }, file)
 
 
-    def load(load_dir):
+    def load(*args,**kwargs):
+        load_dir=save_subdir
         weights_path = os.path.join(load_dir, "weights.pt")
         config_path = os.path.join(load_dir, "config.json")
+        try:
+            # load weights
+            sae_model.load_state_dict(torch.load(weights_path))
 
-        # load weights
-        sae_model.load_state_dict(torch.load(weights_path))
+            # optional DINO
+            if args.dino:
+                dino_weights_path = os.path.join(load_dir, "dino_weights.pt")
+                if os.path.exists(dino_weights_path):
+                    dino_sae_model.load_state_dict(torch.load(dino_weights_path))
 
-        # optional DINO
-        if args.dino:
-            dino_weights_path = os.path.join(load_dir, "dino_weights.pt")
-            if os.path.exists(dino_weights_path):
-                dino_sae_model.load_state_dict(torch.load(dino_weights_path))
+            # load config
+            with open(config_path, "r") as file:
+                config = json.load(file)
 
-        # load config
-        with open(config_path, "r") as file:
-            config = json.load(file)
-
-        return config.get("epoch", 0)
+            return config.get("epoch", 1)
+        except:
+            return 1
         
     
     start_epoch=load(False)

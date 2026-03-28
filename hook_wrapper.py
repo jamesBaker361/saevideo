@@ -1,5 +1,5 @@
 import torch
-from diffusers import DiffusionPipeline
+from diffusers import DiffusionPipeline,UNet2DConditionModel
 from overcomplete import SAE
 
 class HookWrapper:
@@ -35,38 +35,96 @@ class HookWrapper:
         return result,self.activations
     
 class MonkeyModule(torch.nn.Module):
-    def __init__(self, underlying:torch.nn.Module,weight:float,*args, **kwargs):
+    def __init__(self, underlying:torch.nn.Module,weight:float,name:str,*args, **kwargs):
         super().__init__(*args, **kwargs)
         self.underlying=underlying
         self.output=None
         self.weight=weight
+        self.name=name
         
-    def forward(self,*args,**kwargs):
-        result=self.underlying(*args,**kwargs)
-        if type(result) is tuple:
-            residual,result=result
-            result=(self.weight*self.output)+((1-self.weight)*result)
-            return (residual,result)
+    def forward(self, *args, **kwargs):
+        result = self.underlying(*args, **kwargs)
+
+        def blend(x):
+            (b,c,h,w)=x.size()
+
+            if self.output is None:
+                return x
+            (b,c,h,w)=x.size()
+            if len(self.output.size())==2:
+                (_,c)=self.output.size()
+                self.output=self.output.view(1,c,1,1).expand(2,c,h,w)
+            out = self.output.to(x.device, x.dtype)
+            print(self.name,self.output.size(),x.size())
+            return (self.weight * out) + ((1 - self.weight) * x)
+
+        if isinstance(result, tuple):
+            main = result[0]
+            main = blend(main)
+            
+            return (main, *result[1:])
         else:
-            result=(self.weight*self.output)+((1-self.weight)*result)
-            return result
+            return blend(result)
+        
+        
+def set_by_path(obj, path: str, new_module):
+    parts = path.split(".")
+    parent = obj
+
+    # Traverse to parent
+    for part in parts[:-1]:
+        if part.isdigit():
+            parent = parent[int(part)]
+        else:
+            parent = getattr(parent, part)
+
+    last = parts[-1]
+
+    # Replace final node
+    if last.isdigit():
+        parent[int(last)] = new_module
+    else:
+        setattr(parent, last, new_module)
         
 
+def getattr_named(unet:UNet2DConditionModel,target_name:str):
+    for name, module in unet.named_modules():
+        if name == target_name:
+            layer = module
+            return layer
+    return None
+
 class HookForward:
-    def __init__(self,pipe:DiffusionPipeline, layers:list[str],sae_list:list[SAE],shape_list:list,weight:float):
-        self.pipe=pipe
-        self.layers=layers
-        self.sae_list=sae_list
-        
-        
-        for l in self.layers:
-            if self.pipe.unet.getattr(l,None) is not None:
-                self.pipe.unet.setattr(l,MonkeyModule(self.pipe.unet.getattr(l),weight))
+    def __init__(self, pipe, layers, sae_dict, shape_dict, weight):
+        self.pipe = pipe
+        self.layers = set(layers)  # faster lookup
+        self.sae_dict = sae_dict
+        self.shape_dict = shape_dict
+        self.weight = weight
+
+        # IMPORTANT: collect matches first
+        matches = []
+        for name, module in self.pipe.unet.named_modules():
+            if name in self.layers:
+                matches.append((name, module))
+
+        # Now modify AFTER iteration
+        for name, module in matches:
+            # Optional: avoid wrapping twice
+            if isinstance(module, MonkeyModule):
+                continue
+
+            wrapped = MonkeyModule(module, weight,name)
+            set_by_path(self.pipe.unet, name, wrapped)
+            print(f"set {name}")
     
-    def forward(self,sae_src_list:list[torch.Tensor],*args,**kwargs):
-        for layer,sae,src in zip(self.layers,self.sae_list,sae_src_list):
+    def forward(self,sae_src_dict:dict[torch.Tensor],*args,**kwargs):
+        for layer in self.layers:  #,self.sae_dict,sae_src_dict):
+            sae=self.sae_dict[layer]
+            src=sae_src_dict[layer]
             output=sae.decode(src)
-            getattr(self.pipe.unet,layer).output=output
+            
+            getattr_named(self.pipe.unet,layer).output=output
         
         return self.pipe(*args,**kwargs)    
     
