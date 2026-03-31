@@ -129,6 +129,39 @@ class HookForward:
         return self.pipe(*args,**kwargs)    
     
     
+class HookUNet:
+    def __init__(self,unet:UNet2DConditionModel,layers:list, sae_dict:dict, weight:float):
+        
+        self.unet=unet
+        self.layers = set(layers)  # faster lookup
+        self.sae_dict = sae_dict
+        self.weight = weight
+        
+        matches = []
+        for name, module in self.unet.named_modules():
+            if name in self.layers:
+                matches.append((name, module))
+
+        # Now modify AFTER iteration
+        for name, module in matches:
+            # Optional: avoid wrapping twice
+            if isinstance(module, MonkeyModule):
+                continue
+
+            wrapped = MonkeyModule(module, weight,name)
+            set_by_path(self.unet, name, wrapped)
+            print(f"set {name}")
+            
+    def forward(self,sae_src_dict:dict[torch.Tensor],*args,**kwargs):
+        for layer in self.layers:  #,self.sae_dict,sae_src_dict):
+            sae=self.sae_dict[layer]
+            src=sae_src_dict[layer]
+            output=sae.decode(src)
+            
+            getattr_named(self.unet,layer).output=output
+        
+        return self.unet(*args,**kwargs)   
+    
     
 if __name__=="__main__":
     pipe=DiffusionPipeline.from_pretrained("SimianLuo/LCM_Dreamshaper_v7")
