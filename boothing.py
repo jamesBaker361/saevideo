@@ -8,6 +8,7 @@ import numpy as np
 import os
 from accelerate import Accelerator
 from copy import deepcopy
+from diffusers.utils.loading_utils import load_image
 
 
 import os
@@ -22,10 +23,10 @@ import torch.nn.functional as F
 from experiment_helpers.loop_decorator import optimization_loop
 from experiment_helpers.data_helpers import split_data
 from experiment_helpers.init_helpers import default_parser,repo_api_init
+from diffusers.image_processor import VaeImageProcessor
+from torch.utils.data import DataLoader,Dataset
+from unet_autopsy import get_feature_dict
 
-parser=default_parser()
-
-parser.add_argument("--weight",type=float,default=0.5)
 
 def tokenize_prompt(tokenizer, prompt, tokenizer_max_length=None):
     if tokenizer_max_length is not None:
@@ -62,15 +63,146 @@ def encode_prompt(text_encoder, input_ids, attention_mask, text_encoder_use_atte
             
             
 def compute_text_embeddings(prompt,tokenizer,text_encoder):
-            with torch.no_grad():
-                text_inputs = tokenize_prompt(tokenizer, prompt, tokenizer_max_length=77)
-                prompt_embeds = encode_prompt(
-                    text_encoder,
-                    text_inputs.input_ids,
-                    text_inputs.attention_mask,
-                )
+    with torch.no_grad():
+        text_inputs = tokenize_prompt(tokenizer, prompt, tokenizer_max_length=77)
+        prompt_embeds = encode_prompt(
+            text_encoder,
+            text_inputs.input_ids,
+            text_inputs.attention_mask,
+        )
 
-            return prompt_embeds
+    return prompt_embeds
+
+class DreamboothDataset(Dataset):
+    def __init__(self,key:str,text_encoder,tokenizer):
+        super().__init__()
+        self.image_processor=VaeImageProcessor()
+        self.tokenizer=tokenizer
+        self.text_encoder=text_encoder
+        live_subjects_map = {
+            "cat": "cat",
+            "cat2": "cat",
+            "dog": "dog",
+            "dog2": "dog",
+            "dog3": "dog",
+            "dog5": "dog",
+            "dog6": "dog",
+            "dog7": "dog",
+            "dog8": "dog",
+        }
+
+        objects_map = {
+            "backpack": "backpack",
+            "backpack_dog": "backpack",
+            "bear_plushie": "stuffed animal",
+            "berry_bowl": "bowl",
+            "can": "can",
+            "candle": "candle",
+            "clock": "clock",
+            "colorful_sneaker": "sneaker",
+            "duck_toy": "toy",
+            "fancy_boot": "boot",
+            "grey_sloth_plushie": "stuffed animal",
+            "monster_toy": "toy",
+            "pink_sunglasses": "glasses",
+            "poop_emoji": "toy",
+            "rc_car": "toy",
+            "red_cartoon": "cartoon",
+            "robot_toy": "toy",
+            "shiny_sneaker": "sneaker",
+            "teapot": "teapot",
+            "vase": "vase",
+            "wolf_plushie": "stuffed animal",
+        }
+        
+        unique_token="<sks>"
+        
+        if key in objects_map:
+            class_token=objects_map[key]
+            self.prompt_list = [
+            'a {0} {1} in the jungle'.format(unique_token, class_token),
+            'a {0} {1} in the snow'.format(unique_token, class_token),
+            'a {0} {1} on the beach'.format(unique_token, class_token),
+            'a {0} {1} on a cobblestone street'.format(unique_token, class_token),
+            'a {0} {1} on top of pink fabric'.format(unique_token, class_token),
+            'a {0} {1} on top of a wooden floor'.format(unique_token, class_token),
+            'a {0} {1} with a city in the background'.format(unique_token, class_token),
+            'a {0} {1} with a mountain in the background'.format(unique_token, class_token),
+            'a {0} {1} with a blue house in the background'.format(unique_token, class_token),
+            'a {0} {1} on top of a purple rug in a forest'.format(unique_token, class_token),
+            'a {0} {1} with a wheat field in the background'.format(unique_token, class_token),
+            'a {0} {1} with a tree and autumn leaves in the background'.format(unique_token, class_token),
+            'a {0} {1} with the Eiffel Tower in the background'.format(unique_token, class_token),
+            'a {0} {1} floating on top of water'.format(unique_token, class_token),
+            'a {0} {1} floating in an ocean of milk'.format(unique_token, class_token),
+            'a {0} {1} on top of green grass with sunflowers around it'.format(unique_token, class_token),
+            'a {0} {1} on top of a mirror'.format(unique_token, class_token),
+            'a {0} {1} on top of the sidewalk in a crowded street'.format(unique_token, class_token),
+            'a {0} {1} on top of a dirt road'.format(unique_token, class_token),
+            'a {0} {1} on top of a white rug'.format(unique_token, class_token),
+            'a red {0} {1}'.format(unique_token, class_token),
+            'a purple {0} {1}'.format(unique_token, class_token),
+            'a shiny {0} {1}'.format(unique_token, class_token),
+            'a wet {0} {1}'.format(unique_token, class_token),
+            'a cube shaped {0} {1}'.format(unique_token, class_token)
+            ]
+        elif key in live_subjects_map:
+            class_token=objects_map[key]
+            self.prompt_list = [
+                'a {0} {1} in the jungle'.format(unique_token, class_token),
+                'a {0} {1} in the snow'.format(unique_token, class_token),
+                'a {0} {1} on the beach'.format(unique_token, class_token),
+                'a {0} {1} on a cobblestone street'.format(unique_token, class_token),
+                'a {0} {1} on top of pink fabric'.format(unique_token, class_token),
+                'a {0} {1} on top of a wooden floor'.format(unique_token, class_token),
+                'a {0} {1} with a city in the background'.format(unique_token, class_token),
+                'a {0} {1} with a mountain in the background'.format(unique_token, class_token),
+                'a {0} {1} with a blue house in the background'.format(unique_token, class_token),
+                'a {0} {1} on top of a purple rug in a forest'.format(unique_token, class_token),
+                'a {0} {1} wearing a red hat'.format(unique_token, class_token),
+                'a {0} {1} wearing a santa hat'.format(unique_token, class_token),
+                'a {0} {1} wearing a rainbow scarf'.format(unique_token, class_token),
+                'a {0} {1} wearing a black top hat and a monocle'.format(unique_token, class_token),
+                'a {0} {1} in a chef outfit'.format(unique_token, class_token),
+                'a {0} {1} in a firefighter outfit'.format(unique_token, class_token),
+                'a {0} {1} in a police outfit'.format(unique_token, class_token),
+                'a {0} {1} wearing pink glasses'.format(unique_token, class_token),
+                'a {0} {1} wearing a yellow shirt'.format(unique_token, class_token),
+                'a {0} {1} in a purple wizard outfit'.format(unique_token, class_token),
+                'a red {0} {1}'.format(unique_token, class_token),
+                'a purple {0} {1}'.format(unique_token, class_token),
+                'a shiny {0} {1}'.format(unique_token, class_token),
+                'a wet {0} {1}'.format(unique_token, class_token),
+                'a cube shaped {0} {1}'.format(unique_token, class_token)
+                ]
+            
+        self.image_list=[]
+        for n in range(5):
+            try:
+                img=load_image(f"https://raw.githubusercontent.com/google/dreambooth/refs/heads/main/dataset/{key}/0{n}.jpg")
+                self.image_list.append(img)
+            except:
+                break
+            
+    def __len__(self):
+        return len(self.prompt_list)
+    
+    def __getitem__(self, index):
+        return {
+            "image":self.image_processor.preprocess(self.image_list[index %len(self.image_list)]),
+            "input_ids":compute_text_embeddings(self.prompt_list[index],self.tokenizer,self.text_encoder)
+        }
+        
+                  
+        
+        
+        
+
+parser=default_parser()
+
+parser.add_argument("--weight",type=float,default=0.5)
+
+
 
 def main(args):
     api,accelerator,device=repo_api_init(args)
@@ -91,18 +223,7 @@ def main(args):
     c_list=[]
     step=24
     src_dir=f"features_stablediffusionapi_realistic-vision-v51_32"
-    lay_dict={}
-    for lay in layers:
-        try:
-            raw_activations=torch.tensor(np.load(os.path.join(src_dir, "0","0.npz"))[lay][0])
-        except:
-            for key in np.load(os.path.join(src_dir, "0","act_0.npz")).keys():
-                raw_activations=torch.tensor(np.load(os.path.join(src_dir, "0","act_0.npz"))[lay][0])
-        act_size=raw_activations.size()
-        (c,h,w)=act_size
-        c_list.append(c)
-        print(lay,act_size)
-        lay_dict[lay]=c
+    lay_dict={k:v[0] for k,v in get_feature_dict("stablediffusionapi_realistic-vision-v51",device)}
         
     def get_unet_device_dtype(unet):
         param = next(unet.parameters())
@@ -143,10 +264,42 @@ def main(args):
     params=[v for v in sae_src_list.values()]
     optimizer=optimizer_class(params,args.lr)
     
+    
+    unique_token="<sks>"
+    class_token="dog"
+    
+    prompt_list = [
+    'a {0} {1} in the jungle'.format(unique_token, class_token),
+    'a {0} {1} in the snow'.format(unique_token, class_token),
+    'a {0} {1} on the beach'.format(unique_token, class_token),
+    'a {0} {1} on a cobblestone street'.format(unique_token, class_token),
+    'a {0} {1} on top of pink fabric'.format(unique_token, class_token),
+    'a {0} {1} on top of a wooden floor'.format(unique_token, class_token),
+    'a {0} {1} with a city in the background'.format(unique_token, class_token),
+    'a {0} {1} with a mountain in the background'.format(unique_token, class_token),
+    'a {0} {1} with a blue house in the background'.format(unique_token, class_token),
+    'a {0} {1} on top of a purple rug in a forest'.format(unique_token, class_token),
+    'a {0} {1} wearing a red hat'.format(unique_token, class_token),
+    'a {0} {1} wearing a santa hat'.format(unique_token, class_token),
+    'a {0} {1} wearing a rainbow scarf'.format(unique_token, class_token),
+    'a {0} {1} wearing a black top hat and a monocle'.format(unique_token, class_token),
+    'a {0} {1} in a chef outfit'.format(unique_token, class_token),
+    'a {0} {1} in a firefighter outfit'.format(unique_token, class_token),
+    'a {0} {1} in a police outfit'.format(unique_token, class_token),
+    'a {0} {1} wearing pink glasses'.format(unique_token, class_token),
+    'a {0} {1} wearing a yellow shirt'.format(unique_token, class_token),
+    'a {0} {1} in a purple wizard outfit'.format(unique_token, class_token),
+    'a red {0} {1}'.format(unique_token, class_token),
+    'a purple {0} {1}'.format(unique_token, class_token),
+    'a shiny {0} {1}'.format(unique_token, class_token),
+    'a wet {0} {1}'.format(unique_token, class_token),
+    'a cube shaped {0} {1}'.format(unique_token, class_token)
+    ]
+    
     data=[]
     
     start_epoch=1
-    for epoch in range(start_epoch, args.num_train_epochs+1):
+    for epoch in range(start_epoch, args.epochs+1):
         loss_list=[]
         for row in data:
             img=row["image"]
@@ -169,7 +322,8 @@ def main(args):
             with accelerator.accumulate(params):
                 with accelerator.autocast():
                     optimizer.zero_grad()
-                    model_pred = unet(
+                    model_pred = hooked_unet(
+                        sae_src_list,
                         noisy_model_input, timesteps, encoder_hidden_states, class_labels=None, return_dict=False
                     )[0]
                     
@@ -196,3 +350,15 @@ def main(args):
         
 
     #hooker.forward(sae_src_list,"walking",height=64,width=64,num_inference_steps=4)
+    
+if __name__=='__main__':
+    print_details()
+    start=time.time()
+    args=parser.parse_args()
+    print(args)
+    main(args)
+    end=time.time()
+    seconds=end-start
+    hours=seconds/(60*60)
+    print(f"successful generating:) time elapsed: {seconds} seconds = {hours} hours")
+    print("all done!")

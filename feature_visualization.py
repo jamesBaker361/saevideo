@@ -7,10 +7,11 @@ from torch.optim import AdamW
 import torch
 import time
 from experiment_helpers.gpu_details import print_details
-from overcomplete.sae import TopKSAE,QSAE, JumpSAE, BatchTopKSAE,losses
+from overcomplete.sae import TopKSAE,QSAE, JumpSAE, BatchTopKSAE,losses,SAE
 from overcomplete.sae.trackers import DeadCodeTracker
 import wandb
 import os
+from unet_autopsy import get_feature_dict
 
 KSAE="ksae"
 JUMP="jump"
@@ -66,7 +67,7 @@ def main(args):
             if type(output)==tuple:
                 output=output[0]
             try:
-                activations=output.detach().cpu()
+                activations.append(output)
             except:
                 print(type(module),type(output))
         return hook
@@ -85,12 +86,11 @@ def main(args):
             
     latent = torch.nn.Parameter(vae.config.scaling_factor* torch.randn(1,4,args.size,args.size,device=device))
     
-    with torch.no_grad():
-        unet(latent, t, prompt_embeds)
-        
-    (b,c,h,w)=activations.size()
+    output_dict=get_feature_dict(args.checkpoint,device)
     
-    sae=sae_model_class(c,args.nb_concepts)
+    (b,c,h,w)=output_dict[target_layer]
+    
+    sae:SAE=sae_model_class(c,args.nb_concepts)
     
     os.makedirs(args.save_dir,exist_ok=True)
     start_channel=len([f for f in os.listdir(args.saveidr) if f.endswith("png")])
@@ -107,7 +107,9 @@ def main(args):
 
                 unet(latent, t, prompt_embeds)
 
-                act = activations
+                act = activations[-1]
+                print("act size",act.size())
+                act=sae.encode(act)
 
                 feature_loss = -act[:,channel].mean()
 
