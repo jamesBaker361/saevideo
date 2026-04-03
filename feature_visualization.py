@@ -18,6 +18,7 @@ JUMP="jump"
 BATCHK="batch_k"
 QUANTIZED="quantized"
 
+
 parser=argparse.ArgumentParser()
 parser.add_argument("--checkpoint",type=str,default="SimianLuo/LCM_Dreamshaper_v7")
 parser.add_argument("--epochs",type=int,default=10000)
@@ -93,7 +94,7 @@ def main(args):
     sae:SAE=sae_model_class(c,args.nb_concepts)
     
     os.makedirs(args.save_dir,exist_ok=True)
-    start_channel=len([f for f in os.listdir(args.saveidr) if f.endswith("png")])
+    start_channel=len([f for f in os.listdir(args.save_dir) if f.endswith("png")])
     
     for channel in range(start_channel,args.nb_concepts):
         latent = torch.nn.Parameter(vae.config.scaling_factor* torch.randn(1,4,args.size,args.size,device=device))
@@ -108,8 +109,11 @@ def main(args):
                 unet(latent, t, prompt_embeds)
 
                 act = activations[-1]
+                act:torch.Tensor=act.permute((0,2,3,1))
                 print("act size",act.size())
+                act=act.flatten(0,2)
                 act=sae.encode(act)
+                print("act size",act.size())
 
                 feature_loss = -act[:,channel].mean()
 

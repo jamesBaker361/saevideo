@@ -1,7 +1,7 @@
 #https://github.com/surkovv/sdxl-unbox
 
 from diffusers import DiffusionPipeline
-from hook_wrapper import HookForward,HookUNet
+from hook_wrapper import HookPipe,HookUNet
 from overcomplete import TopKSAE
 import torch
 import numpy as np
@@ -223,7 +223,7 @@ def main(args):
     c_list=[]
     step=24
     src_dir=f"features_stablediffusionapi_realistic-vision-v51_32"
-    lay_dict={k:v[0] for k,v in get_feature_dict("stablediffusionapi_realistic-vision-v51",device)}
+    lay_dict={k:v[0] for k,v in get_feature_dict("stablediffusionapi/realistic-vision-v51",device).items()}
         
     def get_unet_device_dtype(unet):
         param = next(unet.parameters())

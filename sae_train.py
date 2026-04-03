@@ -12,6 +12,7 @@ from overcomplete.sae.trackers import DeadCodeTracker
 import numpy as np
 import torch.nn.functional as F
 import json
+from typing import Optional
 
 #https://github.com/KempnerInstitute/overcomplete
 
@@ -30,7 +31,7 @@ parser.add_argument("--nb_concepts",type=int,default=10000,help="n concepts for 
 parser.add_argument("--sae_model",type=str,default=KSAE)
 parser.add_argument("--model_layer",type=str,default="up_blocks.1.attentions.0")
 parser.add_argument("--local_global_split",action="store_true",help="if yes, split the concepts into global and local components; global need to be the same across time and/or location")
-parser.add_argument("--src_dir",type=str,default="seg_ip")
+parser.add_argument("--src_dir_list",type=str,nargs="+")
 parser.add_argument("--dino",action="store_true",help="whether to use dino embeddings too")
 parser.add_argument("--mask",action="store_true",help="whether to mask out irrelevant tensors")
 parser.add_argument("--flatten",action="store_true",help="whether to do the whole image at once or do channel by channel")
@@ -63,42 +64,48 @@ def get_num(path):
     return int(nums[-1])  # last number in filename
     
 class LatentLocalDataset(torch.utils.data.Dataset):
-    def __init__(self,src_dir:str,step:int,model_layer:str,dino:bool,mask:bool,limit:int,flatten:bool,pooling:str,threshold:float):
+    def __init__(self,src_dir_list:Optional[str|list[str]],step:int,model_layer:str,dino:bool,mask:bool,limit:int,flatten:bool,pooling:str,threshold:float):
         self.model_layer=model_layer
-        self.src_dir=src_dir
+        self.src_dir_list=src_dir_list
         super().__init__()
-        self.np_list=[
-            os.path.join(src_dir,str(step),f) for f in os.listdir(os.path.join(src_dir,str(step))) if f.endswith("npz")
-        ][:limit]
-        prefix=""
-        try:
-            raw_activations=torch.tensor(np.load(os.path.join(args.src_dir, "0",f"{prefix}0.npz"))[args.model_layer][0])
-        except:
-            prefix="act_"
-            raw_activations=torch.tensor(np.load(os.path.join(args.src_dir, "0",f"{prefix}0.npz"))[args.model_layer][0])
-        act_size=raw_activations.size()
-        (c,h,w)=act_size
-        self.h=h
-        self.w=w
-        self.c=c
-        self.dino=dino
-        self.mask=mask
-        if dino:
-            self.dino_list=[
-                os.path.join(src_dir,"dino",f) for f in os.listdir(os.path.join(src_dir,"dino")) if f.endswith("npy")
-            ]
-        if mask:
-            self.mask_list=[
-                os.path.join(src_dir,"mask",f) for f in os.listdir(os.path.join(src_dir,"mask")) if f.endswith("npy")
-            ]
-            self.pool={
-                "max":F.max_pool2d,
-                "avg":F.avg_pool2d
-            }[pooling]
-            mask=torch.tensor(np.load(os.path.join(self.src_dir,"mask",f"0.npy")))
-            (m_h,m_w)=mask.size()
-            self.kernel=m_h//h
-            self.threshold=threshold
+        if type(src_dir_list)==str:
+            src_dir_list=[src_dir_list]
+        self.np_list=[]
+        self.dino_list=[]
+        self.mask_list=[]
+        for src_dir in src_dir_list:
+            self.np_list+=[
+                os.path.join(src_dir,str(step),f) for f in os.listdir(os.path.join(src_dir,str(step))) if f.endswith("npz")
+            ][:limit]
+            prefix=""
+            try:
+                raw_activations=torch.tensor(np.load(os.path.join(src_dir, "0",f"{prefix}0.npz"))[args.model_layer][0])
+            except:
+                prefix="act_"
+                raw_activations=torch.tensor(np.load(os.path.join(src_dir, "0",f"{prefix}0.npz"))[args.model_layer][0])
+            act_size=raw_activations.size()
+            (c,h,w)=act_size
+            self.h=h
+            self.w=w
+            self.c=c
+            self.dino=dino
+            self.mask=mask
+            if dino:
+                self.dino_list+=[
+                    os.path.join(src_dir,"dino",f) for f in os.listdir(os.path.join(src_dir,"dino")) if f.endswith("npy")
+                ]
+            if mask:
+                self.mask_list+=[
+                    os.path.join(src_dir,"mask",f) for f in os.listdir(os.path.join(src_dir,"mask")) if f.endswith("npy")
+                ]
+                self.pool={
+                    "max":F.max_pool2d,
+                    "avg":F.avg_pool2d
+                }[pooling]
+                mask=torch.tensor(np.load(self.mask_list[0]))
+                (m_h,m_w)=mask.size()
+                self.kernel=m_h//h
+                self.threshold=threshold
         self.flatten=flatten
         
 
@@ -109,7 +116,7 @@ class LatentLocalDataset(torch.utils.data.Dataset):
         ret={"act": torch.tensor(np.load(self.np_list[index])[self.model_layer][0])}
         num=get_num(self.np_list[index])
         if self.mask:
-            mask=np.load(os.path.join(self.src_dir,"mask",f"{num}.npy"))
+            mask=np.load(self.mask_list[index])
             ret["mask"] = torch.tensor(mask).unsqueeze(0)
             #print("mask size",ret["mask"].size())
             ret["mask"]=self.pool(ret["mask"],kernel_size=self.kernel,stride=self.kernel)
@@ -122,7 +129,7 @@ class LatentLocalDataset(torch.utils.data.Dataset):
         else:
             ret["act"]=ret["act"].permute(1,2,0).flatten(0,1)
         if self.dino:
-            ret["dino"]=torch.tensor(np.load(os.path.join(self.src_dir,"dino",f"{num}.npy"))[0][0])
+            ret["dino"]=torch.tensor(np.load(self.dino_list[index])[0][0])
             if not self.flatten:
                 ret["dino"]=ret["dino"].unsqueeze(0).expand(self.h*self.w, 384)
                 if self.mask:
@@ -146,7 +153,7 @@ def main(args):
         KSAE:losses.mse_l1 #TODO: find losses for other models
     }[args.sae_model]
 
-    dataset= LatentLocalDataset(args.src_dir,args.step,args.model_layer,args.dino,args.mask,args.limit,args.flatten,args.pooling,args.threshold)
+    dataset= LatentLocalDataset(args.src_dir_list,args.step,args.model_layer,args.dino,args.mask,args.limit,args.flatten,args.pooling,args.threshold)
     
     train_loader,test_loader,val_loader=split_data(dataset,0.95,args.batch_size)
     
@@ -156,9 +163,9 @@ def main(args):
     print("real activation size ",batch["act"].size())
     
     try:
-        raw_activations=torch.tensor(np.load(os.path.join(args.src_dir, "0","0.npz"))[args.model_layer][0])
+        raw_activations=torch.tensor(np.load(os.path.join(args.src_dir_list[0], "0","0.npz"))[args.model_layer][0])
     except:
-        raw_activations=torch.tensor(np.load(os.path.join(args.src_dir, "0","act_0.npz"))[args.model_layer][0])
+        raw_activations=torch.tensor(np.load(os.path.join(args.src_dir_list[0], "0","act_0.npz"))[args.model_layer][0])
     act_size=raw_activations.size()
     (c,h,w)=act_size
         

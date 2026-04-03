@@ -94,7 +94,7 @@ def getattr_named(unet:UNet2DConditionModel,target_name:str):
             return layer
     return None
 
-class HookForward:
+class HookPipe:
     def __init__(self, pipe, layers, sae_dict, shape_dict, weight):
         self.pipe = pipe
         self.layers = set(layers)  # faster lookup

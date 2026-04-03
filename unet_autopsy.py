@@ -12,7 +12,7 @@ args=parser.parse_args()
 
 def get_feature_dict(checkpoint:str,device)->dict[str,list[int]]:
     output_data={}
-    pipe =DiffusionPipeline.from_pretrained(checkpoint).to(device)
+    pipe =DiffusionPipeline.from_pretrained(checkpoint).to(device,dtype=torch.float16)
     unet=pipe.unet
     names=[name for name,module in unet.named_modules()]
 

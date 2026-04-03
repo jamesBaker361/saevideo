@@ -84,7 +84,7 @@ elif args.dataset=='flickr':
     data=load_dataset("AnyModal/flickr30k",split="train")
     all_prompts=[row["alt_text"][0] for row in data]
 elif args.dataset=='laion':
-    data=load_dataset("guangyil/laion-coco-aesthetic",split="train")
+    data=load_dataset("laion/laion2B-en-aesthetic",split="train")
     all_prompts=[row["TEXT"] for row in data]
 else:
     print("unrezognized datasset",args.dataset)
@@ -106,7 +106,7 @@ count=0
 folder=args.folder
 os.makedirs(folder,exist_ok=True)
 config="config.csv"
-count=len([f for f in os.listdir(folder) if f.endswith("png")])
+count=len([f for f in os.listdir(folder) if f.endswith("jpg")])
         
 print("count ",count,f"/{len(all_prompts)*batch_size}")
 with open(os.path.join(folder,config),"a",buffering=1) as file:
@@ -144,7 +144,7 @@ with open(os.path.join(folder,config),"a",buffering=1) as file:
                     accelerator.print(f"Process {accelerator.process_index} generated {len(local_images)+count} images in {end-start:.2f}s")
                     
                 for x,(img,sub,sty,prompt) in enumerate(zip(images,subjects,styles,prompts)):
-                    path=os.path.join(folder,f"{count}.png")
+                    path=os.path.join(folder,f"{count}.jpg")
                     img.save(path)
                     file.write(f"{path},{sub},{sty},{prompt}\n")
                     count+=1
@@ -185,7 +185,7 @@ os.makedirs(folder,exist_ok=True)
 config="config.csv"
 with open(os.path.join(folder,config),"w") as file:
     for x,(img,sub,sty,prompt) in enumerate(zip(all_images,all_subjects,all_styles,all_prompts)):
-        path=os.path.join(folder,f"{x}.png")
+        path=os.path.join(folder,f"{x}.jpg")
         img.save(path)
         file.write(f"{path},{sub},{sty},{prompt}")'''
 # ---------------------------
