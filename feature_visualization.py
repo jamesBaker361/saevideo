@@ -113,7 +113,7 @@ def main(args):
                 print("act size",act.size())
                 act=act.flatten(0,2)
                 act=sae.encode(act)
-                print("act size",act.size())
+                print("act size",act[0].size())
 
                 feature_loss = -act[:,channel].mean()
 

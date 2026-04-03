@@ -9,6 +9,8 @@ import os
 from accelerate import Accelerator
 from copy import deepcopy
 from diffusers.utils.loading_utils import load_image
+import json
+from PIL import Image
 
 
 import os
@@ -79,107 +81,33 @@ class DreamboothDataset(Dataset):
         self.image_processor=VaeImageProcessor()
         self.tokenizer=tokenizer
         self.text_encoder=text_encoder
-        live_subjects_map = {
-            "cat": "cat",
-            "cat2": "cat",
-            "dog": "dog",
-            "dog2": "dog",
-            "dog3": "dog",
-            "dog5": "dog",
-            "dog6": "dog",
-            "dog7": "dog",
-            "dog8": "dog",
-        }
 
-        objects_map = {
-            "backpack": "backpack",
-            "backpack_dog": "backpack",
-            "bear_plushie": "stuffed animal",
-            "berry_bowl": "bowl",
-            "can": "can",
-            "candle": "candle",
-            "clock": "clock",
-            "colorful_sneaker": "sneaker",
-            "duck_toy": "toy",
-            "fancy_boot": "boot",
-            "grey_sloth_plushie": "stuffed animal",
-            "monster_toy": "toy",
-            "pink_sunglasses": "glasses",
-            "poop_emoji": "toy",
-            "rc_car": "toy",
-            "red_cartoon": "cartoon",
-            "robot_toy": "toy",
-            "shiny_sneaker": "sneaker",
-            "teapot": "teapot",
-            "vase": "vase",
-            "wolf_plushie": "stuffed animal",
-        }
         
         unique_token="<sks>"
+        samples_per_epoch=6
         
-        if key in objects_map:
-            class_token=objects_map[key]
-            self.prompt_list = [
-            'a {0} {1} in the jungle'.format(unique_token, class_token),
-            'a {0} {1} in the snow'.format(unique_token, class_token),
-            'a {0} {1} on the beach'.format(unique_token, class_token),
-            'a {0} {1} on a cobblestone street'.format(unique_token, class_token),
-            'a {0} {1} on top of pink fabric'.format(unique_token, class_token),
-            'a {0} {1} on top of a wooden floor'.format(unique_token, class_token),
-            'a {0} {1} with a city in the background'.format(unique_token, class_token),
-            'a {0} {1} with a mountain in the background'.format(unique_token, class_token),
-            'a {0} {1} with a blue house in the background'.format(unique_token, class_token),
-            'a {0} {1} on top of a purple rug in a forest'.format(unique_token, class_token),
-            'a {0} {1} with a wheat field in the background'.format(unique_token, class_token),
-            'a {0} {1} with a tree and autumn leaves in the background'.format(unique_token, class_token),
-            'a {0} {1} with the Eiffel Tower in the background'.format(unique_token, class_token),
-            'a {0} {1} floating on top of water'.format(unique_token, class_token),
-            'a {0} {1} floating in an ocean of milk'.format(unique_token, class_token),
-            'a {0} {1} on top of green grass with sunflowers around it'.format(unique_token, class_token),
-            'a {0} {1} on top of a mirror'.format(unique_token, class_token),
-            'a {0} {1} on top of the sidewalk in a crowded street'.format(unique_token, class_token),
-            'a {0} {1} on top of a dirt road'.format(unique_token, class_token),
-            'a {0} {1} on top of a white rug'.format(unique_token, class_token),
-            'a red {0} {1}'.format(unique_token, class_token),
-            'a purple {0} {1}'.format(unique_token, class_token),
-            'a shiny {0} {1}'.format(unique_token, class_token),
-            'a wet {0} {1}'.format(unique_token, class_token),
-            'a cube shaped {0} {1}'.format(unique_token, class_token)
+        with open("pcs_dataset/info.json","r") as f:
+            mapping=json.load(f)
+            
+        
+        if key in mapping["subjects"]["subject_with_cls"]:
+            category="subjects"
+            class_token =mapping["subjects"]["subject_with_cls"][key]
+        elif key in mapping["face"]["id_with_gender"]:
+            category="face"
+            class_token= mapping["face"]["id_with_gender"][key]
+
+        self.prompt_list = [
+                    'a {0} {1} '.format(unique_token, class_token) for _ in range(samples_per_epoch)
             ]
-        elif key in live_subjects_map:
-            class_token=objects_map[key]
-            self.prompt_list = [
-                'a {0} {1} in the jungle'.format(unique_token, class_token),
-                'a {0} {1} in the snow'.format(unique_token, class_token),
-                'a {0} {1} on the beach'.format(unique_token, class_token),
-                'a {0} {1} on a cobblestone street'.format(unique_token, class_token),
-                'a {0} {1} on top of pink fabric'.format(unique_token, class_token),
-                'a {0} {1} on top of a wooden floor'.format(unique_token, class_token),
-                'a {0} {1} with a city in the background'.format(unique_token, class_token),
-                'a {0} {1} with a mountain in the background'.format(unique_token, class_token),
-                'a {0} {1} with a blue house in the background'.format(unique_token, class_token),
-                'a {0} {1} on top of a purple rug in a forest'.format(unique_token, class_token),
-                'a {0} {1} wearing a red hat'.format(unique_token, class_token),
-                'a {0} {1} wearing a santa hat'.format(unique_token, class_token),
-                'a {0} {1} wearing a rainbow scarf'.format(unique_token, class_token),
-                'a {0} {1} wearing a black top hat and a monocle'.format(unique_token, class_token),
-                'a {0} {1} in a chef outfit'.format(unique_token, class_token),
-                'a {0} {1} in a firefighter outfit'.format(unique_token, class_token),
-                'a {0} {1} in a police outfit'.format(unique_token, class_token),
-                'a {0} {1} wearing pink glasses'.format(unique_token, class_token),
-                'a {0} {1} wearing a yellow shirt'.format(unique_token, class_token),
-                'a {0} {1} in a purple wizard outfit'.format(unique_token, class_token),
-                'a red {0} {1}'.format(unique_token, class_token),
-                'a purple {0} {1}'.format(unique_token, class_token),
-                'a shiny {0} {1}'.format(unique_token, class_token),
-                'a wet {0} {1}'.format(unique_token, class_token),
-                'a cube shaped {0} {1}'.format(unique_token, class_token)
-                ]
             
         self.image_list=[]
-        for n in range(5):
+        for n in range(samples_per_epoch):
             try:
-                img=load_image(f"https://raw.githubusercontent.com/google/dreambooth/refs/heads/main/dataset/{key}/0{n}.jpg")
+                if category=="face":
+                    img=Image.open(os.path.join("pcs_dataset",category,key,"face.jpg"))
+                elif category=="subjects":
+                    img=Image.open(os.path.join("pcs_dataset",category,key,f"0{n}.jpg"))
                 self.image_list.append(img)
             except:
                 break
@@ -201,6 +129,9 @@ class DreamboothDataset(Dataset):
 parser=default_parser()
 
 parser.add_argument("--weight",type=float,default=0.5)
+parser.add_argument("--key",type=str,default="chair")
+parser.add_argument("--checkpoint",type=str,default="stablediffusionapi/realistic-vision-v51")
+parser.add_argument("--num_inference_steps",type=int,default=2)
 
 
 
@@ -209,7 +140,7 @@ def main(args):
     os.makedirs(args.save_dir,exist_ok=True)
 
 
-    pipe=DiffusionPipeline.from_pretrained("stablediffusionapi/realistic-vision-v51",torch_dtype=torch.float16).to(device)
+    pipe=DiffusionPipeline.from_pretrained(args.checkpoint,torch_dtype=torch.float16).to(device)
 
     layers=[
         "down_blocks.1.attentions.0","down_blocks.1.attentions.1",
@@ -223,7 +154,7 @@ def main(args):
     c_list=[]
     step=24
     src_dir=f"features_stablediffusionapi_realistic-vision-v51_32"
-    lay_dict={k:v[0] for k,v in get_feature_dict("stablediffusionapi/realistic-vision-v51",device).items()}
+    lay_dict={k:v[0] for k,v in get_feature_dict(args.checkpoint,device).items() if k in layers}
         
     def get_unet_device_dtype(unet):
         param = next(unet.parameters())
@@ -234,7 +165,7 @@ def main(args):
         lay: TopKSAE(c,nb_concepts,).to(device,dtype) for lay,c in lay_dict.items()
     }
 
-
+    shape_dict=get_feature_dict(args.checkpoint,device)
 
     for lay,ksae in sae_dict.items():
         ksae.load_state_dict(torch.load(
@@ -258,45 +189,18 @@ def main(args):
 
     batch_size=1
     #maybe do one of these for each entity (which )
-    sae_src_list={ lay: torch.normal(0,1,(batch_size,nb_concepts)).to(device,dtype)  for lay in layers} #these are trainable!
-    optimizer_class = torch.optim.AdamW
+    sae_src_dict={ lay: torch.normal(0,1,(batch_size,nb_concepts)).to(device,dtype)  for lay in layers} #these are trainable!
     
-    params=[v for v in sae_src_list.values()]
+    
+    params=[v for v in sae_src_dict.values()]
+    optimizer_class = torch.optim.AdamW
     optimizer=optimizer_class(params,args.lr)
     
     
     unique_token="<sks>"
     class_token="dog"
     
-    prompt_list = [
-    'a {0} {1} in the jungle'.format(unique_token, class_token),
-    'a {0} {1} in the snow'.format(unique_token, class_token),
-    'a {0} {1} on the beach'.format(unique_token, class_token),
-    'a {0} {1} on a cobblestone street'.format(unique_token, class_token),
-    'a {0} {1} on top of pink fabric'.format(unique_token, class_token),
-    'a {0} {1} on top of a wooden floor'.format(unique_token, class_token),
-    'a {0} {1} with a city in the background'.format(unique_token, class_token),
-    'a {0} {1} with a mountain in the background'.format(unique_token, class_token),
-    'a {0} {1} with a blue house in the background'.format(unique_token, class_token),
-    'a {0} {1} on top of a purple rug in a forest'.format(unique_token, class_token),
-    'a {0} {1} wearing a red hat'.format(unique_token, class_token),
-    'a {0} {1} wearing a santa hat'.format(unique_token, class_token),
-    'a {0} {1} wearing a rainbow scarf'.format(unique_token, class_token),
-    'a {0} {1} wearing a black top hat and a monocle'.format(unique_token, class_token),
-    'a {0} {1} in a chef outfit'.format(unique_token, class_token),
-    'a {0} {1} in a firefighter outfit'.format(unique_token, class_token),
-    'a {0} {1} in a police outfit'.format(unique_token, class_token),
-    'a {0} {1} wearing pink glasses'.format(unique_token, class_token),
-    'a {0} {1} wearing a yellow shirt'.format(unique_token, class_token),
-    'a {0} {1} in a purple wizard outfit'.format(unique_token, class_token),
-    'a red {0} {1}'.format(unique_token, class_token),
-    'a purple {0} {1}'.format(unique_token, class_token),
-    'a shiny {0} {1}'.format(unique_token, class_token),
-    'a wet {0} {1}'.format(unique_token, class_token),
-    'a cube shaped {0} {1}'.format(unique_token, class_token)
-    ]
-    
-    data=[]
+    data=DreamboothDataset(args.key,text_encoder,tokenizer)
     
     start_epoch=1
     for epoch in range(start_epoch, args.epochs+1):
@@ -323,7 +227,7 @@ def main(args):
                 with accelerator.autocast():
                     optimizer.zero_grad()
                     model_pred = hooked_unet(
-                        sae_src_list,
+                        sae_src_dict,
                         noisy_model_input, timesteps, encoder_hidden_states, class_labels=None, return_dict=False
                     )[0]
                     
@@ -342,12 +246,38 @@ def main(args):
         })
         print("loss",np.mean(loss_list))
     os.makedirs(args.save_dir,exist_ok=True)
-    for lay,t in sae_src_list:
+    for lay,t in sae_src_dict:
         new_dir=os.path.join(args.save_dir,lay)
         os.makedirs(new_dir,exist_ok=True)
         new_path=os.path.join(new_dir,"weights.pt")
-        torch.save(t,new_path)                
+        torch.save(t,new_path)
         
+    #log result images
+    with open("pcs_dataset/info.json","r") as f:
+        mapping=json.load(f)
+        
+    if args.key in mapping["subjects"]["subject_with_cls"]:
+        category="subjects"
+        class_token =mapping["subjects"]["subject_with_cls"][args.key]
+        
+        if class_token in mapping["subjects"]["live_subjects"]:
+            prompt_list= mapping["subjects"]["prompt_live"]
+        else:
+            prompt_list=mapping["subjects"]["prompt_object"]
+    elif args.key in mapping["face"]["id_with_gender"]:
+        category="face"
+        class_token= mapping["face"]["id_with_gender"][args.key]
+        prompt_list = [p for subset in ["prompt_accesory","prompt_context","prompt_action","prompt_style"] for p in mapping[category][subset]]
+        
+    prompt_list=[p.format(unique_token,class_token) for p in prompt_list]
+    
+    hooked_pipeline=HookPipe(DiffusionPipeline.from_pretrained(args.checkpoint,torch_dtype=torch.float16).to(device),
+                             layers,sae_dict,shape_dict,args.weight)
+    
+    for p,prompt in enumerate(prompt_list):
+        gen_img:Image.Image=hooked_pipeline.forward(sae_src_dict,prompt,height=256,width=256,num_inference_steps=args.num_inference_steps).images[0]
+        gen_img.save(os.path.join(args.save_dir,f"gen_{p}.jpg"))
+            
 
     #hooker.forward(sae_src_list,"walking",height=64,width=64,num_inference_steps=4)
     
