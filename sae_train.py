@@ -14,6 +14,7 @@ import torch.nn.functional as F
 from unet_autopsy import get_shape_dict
 import json
 from typing import Optional
+from torchvision.transforms import Resize
 
 #https://github.com/KempnerInstitute/overcomplete
 
@@ -122,7 +123,7 @@ class LatentLocalDataset(torch.utils.data.Dataset):
             print("mask size ",ret["mask"].size())
             print("mask path ",self.mask_list[index])
 
-            ret["mask"]=F.interpolate(ret["mask"],(h,w))
+            ret["mask"]=Resize(h,w)(ret["mask"])
             ret["mask"] = (ret["mask"] > self.threshold).to(torch.uint8)
 
             ret["act"]=ret["mask"]*ret["act"]
