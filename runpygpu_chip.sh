@@ -57,6 +57,7 @@ export NCCL_DEBUG_SUBSYS="ALL"
 export TORCH_LOCAL_DIR="/umbc/rs/pi_donengel/users/jbaker15/local_torch"
 export KAGGLEHUB_CACHE="/umbc/rs/pi_donengel/users/jbaker15/kaggle_cache"
 export KAGGLE_CONFIG_DIR="/umbc/rs/pi_donengel/users/jbaker15/kaggle_config"
+export CLIP_CACHE="/umbc/rs/pi_donengel/users/jbaker15/clip_cache"
 export SDL_VIDEODRIVER=dummy
 export XDG_RUNTIME_DIR="/umbc/rs/pi_donengel/users/jbaker15/xdg_runtime"
 export TMPDIR="/umbc/rs/pi_donengel/users/jbaker15/tmp"

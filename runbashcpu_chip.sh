@@ -49,6 +49,7 @@ export HPS_ROOT="/umbc/rs/pi_donengel/users/jbaker15/hps-cache"
 export IMAGE_REWARD_PATH="/umbc/rs/pi_donengel/users/jbaker15/reward-blob"
 export IMAGE_REWARD_CONFIG="/umbc/rs/pi_donengel/users/jbaker15/ImageReward/med_config.json"
 export BRAIN_DATA_DIR='/umbc/rs/pi_donengel/users/jbaker15/brain-diffuser/data'
+export CLIP_CACHE="/umbc/rs/pi_donengel/users/jbaker15/clip_cache"
 export CUDA_LAUNCH_BLOCKING="1"
 export SCIKIT_LEARN_DATA="/umbc/rs/pi_donengel/users/jbaker15/scikit-learn-data"
 export BRAIN_DATA_DIR="/umbc/rs/pi_donengel/users/jbaker15/brain/data"
