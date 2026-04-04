@@ -128,7 +128,7 @@ def main(args):
 
                 loss = feature_loss + 0.01*reg_tv + 0.001*reg_l2
 
-                loss.backward()
+                loss.backward(retain_graph=True)
                 optimizer.step()
 
                 with torch.no_grad():
