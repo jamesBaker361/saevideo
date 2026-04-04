@@ -10,7 +10,7 @@ def get_sae_dict(checkpoint:str,device,nb_concepts:int,layers:list[str],prefix:s
         print(layer,shape_dict[layer])
     
     sae_dict={
-        layer: TopKSAE(shape_dict[layer][0],nb_concepts) for layer in layers
+        layer: TopKSAE(shape_dict[layer][1],nb_concepts) for layer in layers
     }
     
     for layer,ksae in sae_dict.items():

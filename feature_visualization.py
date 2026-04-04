@@ -21,8 +21,8 @@ QUANTIZED="quantized"
 parser=argparse.ArgumentParser()
 parser.add_argument("--checkpoint",type=str,default="SimianLuo/LCM_Dreamshaper_v7")
 parser.add_argument("--epochs",type=int,default=10000)
-parser.add_argument("--target_layer",type=str,default='up_blocks.3.attentions.0')
-parser.add_argument("--sae_checkpoint",type=str,default="abcdfsf")
+parser.add_argument("--target_layer",type=str,default='up_blocks.1.attentions.0')
+parser.add_argument("--sae_checkpoint",type=str,default="sae_model/seg_ip_flickr_up_blocks.1.attentions.0_2/weights.pt")
 parser.add_argument("--lr",type=float,default=0.05)
 parser.add_argument("--num_inference_steps",type=int,default=4)
 parser.add_argument("--channel",type=int,default=0,help="channel to optimize")
@@ -38,6 +38,9 @@ def main(args):
     accelerator =accelerate.Accelerator(log_with="wandb")
     accelerator.init_trackers(args.project_name)
     device=accelerator.device
+    
+    if args.sae_checkpoint.find(args.target_layer)==-1:
+        print("args.sae_checkpoint.find(args.target_layer) ==-1 this looks might be an error ")
 
     pipe =DiffusionPipeline.from_pretrained(args.checkpoint).to(accelerator.device)
 

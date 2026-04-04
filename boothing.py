@@ -134,8 +134,8 @@ parser.add_argument("--key",type=str,default="chair")
 parser.add_argument("--checkpoint",type=str,default="stablediffusionapi/realistic-vision-v51")
 parser.add_argument("--num_inference_steps",type=int,default=2)
 parser.add_argument("--nb_concepts",type=int,default=10000,help="n concepts for SAE")
-parser.add_argument("--prefix",type=str,default="features_stablediffusionapi_realistic-vision-v51_32")
-parser.add_argument("--step",type=int,default=2)
+parser.add_argument("--prefix",type=str,default="features_stablediffusionapi_realistic-vision-v51_32_")
+parser.add_argument("--step",type=int,default=24)
 
 
 
@@ -144,7 +144,7 @@ def main(args):
     os.makedirs(args.save_dir,exist_ok=True)
 
 
-    pipe=DiffusionPipeline.from_pretrained(args.checkpoint,torch_dtype=torch.float16).to(device)
+    pipe=DiffusionPipeline.from_pretrained(args.checkpoint,torch_dtype=torch.float32).to(device)
 
     layers=[
         "down_blocks.1.attentions.0","down_blocks.1.attentions.1",

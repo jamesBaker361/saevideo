@@ -57,7 +57,8 @@ def main(args):
     img = Image.new("RGB", (512, 512), color=(255, 255, 255))
     
     dino=get_last_hidden_states(img,dino_processor,dino_model)
-    (b,dc)=dino.size()
+    print("dino size ",dino.size())
+    (b,n,dc)=dino.size()
     
     
     dino_sae_dict={
@@ -82,7 +83,7 @@ def main(args):
     data=PersonaDataset(args.subset,(args.size,args.size))
     
     pipe=HookPipe(
-        DiffusionPipeline.from_pretrained(args.checkpoint).to(device),args.layers,sae_dict,
+        DiffusionPipeline.from_pretrained(args.checkpoint).to(device),args.layers,sae_dict,shape_dict,0.5
     )
     
     clip_text_alignment=[]
