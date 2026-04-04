@@ -91,25 +91,27 @@ def main(args):
     
     evaluator=CLIPEvaluator(device)
     
-    for r,row in enumerate(data):
-        if r==args.limit:
-            break
-        
-        image=row["image"]
-        prompt=row["text"]
-        
-        dino=get_last_hidden_states(image,dino_processor,dino_model)
-        print("dino size",dino.size())
-        sae_src_dict={
-            layer: ksae.decode(dino) for layer in dino_sae_dict
-        }
-        for layer,(c,h,w) in shape_dict:
-            sae_src_dict[layer]=sae_src_dict.unsqueeze(-1).unsqueeze(-1).expand(-1,-1,h,w).to(device)
+    with torch.no_grad():
+    
+        for r,row in enumerate(data):
+            if r==args.limit:
+                break
             
-        result=pipe.forward(sae_src_dict,prompt,num_inference_steps=args.num_inference_steps,height=256,width=256,return_dict=False).images
-        
-        clip_image_alignment.append(evaluator.img_to_img_similarity(result,image).cpu().detach().numpy())
-        clip_text_alignment.append(evaluator.txt_to_img_similarity(result,prompt).cpu().detach().numpy())
+            image=row["image"]
+            prompt=row["text"]
+            
+            dino=get_last_hidden_states(image,dino_processor,dino_model)
+            print("dino size",dino.size())
+            sae_src_dict={
+                layer: ksae.decode(dino) for layer in dino_sae_dict
+            }
+            for layer,(c,h,w) in shape_dict:
+                sae_src_dict[layer]=sae_src_dict.unsqueeze(-1).unsqueeze(-1).expand(-1,-1,h,w).to(device)
+                
+            result=pipe.forward(sae_src_dict,prompt,num_inference_steps=args.num_inference_steps,height=256,width=256,return_dict=False).images
+            
+            clip_image_alignment.append(evaluator.img_to_img_similarity(result,image).cpu().detach().numpy())
+            clip_text_alignment.append(evaluator.txt_to_img_similarity(result,prompt).cpu().detach().numpy())
         
     
     print(np.mean(clip_text_alignment))
