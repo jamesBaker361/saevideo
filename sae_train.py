@@ -65,7 +65,9 @@ def get_num(path):
     return int(nums[-1])  # last number in filename
     
 class LatentLocalDataset(torch.utils.data.Dataset):
-    def __init__(self,src_dir_list:Optional[str|list[str]],checkpoint:str,step:int,model_layer:str,dino:bool,mask:bool,limit:int,flatten:bool,pooling:str,threshold:float):
+    def __init__(self,src_dir_list:Optional[str|list[str]],checkpoint:str,step:int,model_layer:str,dino:bool,
+                 mask:bool,limit:int,flatten:bool,pooling:str,threshold:float,
+                 device):
         self.model_layer=model_layer
         self.src_dir_list=src_dir_list
         super().__init__()
@@ -74,7 +76,7 @@ class LatentLocalDataset(torch.utils.data.Dataset):
         self.np_list=[]
         self.dino_list=[]
         self.mask_list=[]
-        shape_dict=get_shape_dict(checkpoint)
+        shape_dict=get_shape_dict(checkpoint,device)
         (c,h,w)=shape_dict[model_layer]
         self.h=h
         self.w=w
@@ -150,7 +152,8 @@ def main(args):
     }[args.sae_model]
 
     dataset= LatentLocalDataset(args.src_dir_list,args.checkpoint,
-                                args.step,args.model_layer,args.dino,args.mask,args.limit,args.flatten,args.pooling,args.threshold)
+                                args.step,args.model_layer,args.dino,args.mask,args.limit,args.flatten,args.pooling,
+                                args.threshold,device)
     
     train_loader,test_loader,val_loader=split_data(dataset,0.95,args.batch_size)
     

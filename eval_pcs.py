@@ -10,7 +10,7 @@ from torchvision import transforms
 class CLIPEvaluator(object):
     def __init__(self, device, clip_model='ViT-B/32') -> None:
         self.device = device
-        self.model, clip_preprocess = clip.load(clip_model, device=self.device)
+        self.model, clip_preprocess = clip.load(clip_model, device=self.device,download_root=os.environ["CLIP_CACHE"])
 
         self.preprocess = clip_preprocess
         

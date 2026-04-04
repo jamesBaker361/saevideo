@@ -5,7 +5,11 @@ import accelerate
 import torch
 import json
 
-
+def get_module_by_name(model, target_name):
+    for name, module in model.named_modules():
+        if name == target_name:
+            return module
+    raise ValueError(f"Module {target_name} not found")
 
 def get_shape_dict(checkpoint:str,device,size:int=64)->dict[str,list[int]]:
     output_data={}
@@ -35,7 +39,7 @@ def main():
         shape_dict=get_shape_dict(checkpoint,accelerator.device)
         output_data[checkpoint]=shape_dict
         for key in shape_dict:
-            print(key, type(getattr(pipe.unet,key,None)),shape_dict[key])
+            print(key, type(get_module_by_name(pipe.unet,key)),shape_dict[key])
         
     with open("autopsy.json","w") as file:
         json.dump(output_data,file)

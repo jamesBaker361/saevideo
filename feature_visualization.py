@@ -63,20 +63,22 @@ def main(args):
 
     timesteps,num_inference_steps=retrieve_timesteps(pipe.scheduler,args.num_inference_steps)
 
-    activations=[]
+    activations=None
 
     def save_hook(name):
         def hook(module, input, output):
+            nonlocal activations
             if type(output)==tuple:
                 output=output[0]
-            activations.append(output)
+            setattr(module,"cached_output",output)
         return hook
 
     for name, module in unet.named_modules():
         if name ==target_layer:
             module.register_forward_hook(save_hook(name))
+            break
             
-    
+    print("module ",module)
             
     def tv_loss(x): #total variation loss
         return (
@@ -110,13 +112,12 @@ def main(args):
 
                 unet(latent, t, prompt_embeds)
 
-                act = activations[-1]
-                activations.clear()
+                act = getattr(module,"cached_output")
                 act:torch.Tensor=act.permute((0,2,3,1))
-                print("act size",act.size())
+                #print("act size",act.size())
                 act=act.flatten(0,2)
                 act=sae.encode(act)[0]
-                print("act size",act.size())
+                #print("act size",act.size())
 
                 feature_loss = -act[:,channel].mean()
 
@@ -125,7 +126,7 @@ def main(args):
 
                 loss = feature_loss + 0.01*reg_tv + 0.001*reg_l2
 
-                loss.backward(retain_graph=True)
+                loss.backward()
                 optimizer.step()
 
                 with torch.no_grad():
