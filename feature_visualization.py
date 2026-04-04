@@ -110,6 +110,8 @@ def main(args):
 
                 optimizer.zero_grad()
 
+                act=None
+                setattr(module,"cached_output",None)
                 unet(latent, t, prompt_embeds)
 
                 act = getattr(module,"cached_output")

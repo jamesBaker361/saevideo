@@ -77,7 +77,7 @@ class LatentLocalDataset(torch.utils.data.Dataset):
         self.dino_list=[]
         self.mask_list=[]
         shape_dict=get_shape_dict(checkpoint,device)
-        (c,h,w)=shape_dict[model_layer]
+        (b,c,h,w)=shape_dict[model_layer]
         self.h=h
         self.w=w
         self.c=c

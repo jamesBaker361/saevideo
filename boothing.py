@@ -196,7 +196,7 @@ def main(args):
     for epoch in range(start_epoch, args.epochs+1):
         loss_list=[]
         for row in data:
-            img=row["image"]
+            img=row["image"].to(device)
             encoder_hidden_states=row["input_ids"]
             latents=vae.encode(img).latent_dist.sample()
             noise = torch.randn_like(latents)
@@ -216,7 +216,7 @@ def main(args):
             with accelerator.accumulate(params):
                 with accelerator.autocast():
                     optimizer.zero_grad()
-                    model_pred = hooked_unet.forward(
+                    model_pred = hooked_unet.forward( #add cross attn matching attn2.to_k
                         sae_src_dict,
                         noisy_model_input, timesteps, encoder_hidden_states, class_labels=None, return_dict=False
                     )[0]
