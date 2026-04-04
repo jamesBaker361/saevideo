@@ -216,7 +216,7 @@ def main(args):
             with accelerator.accumulate(params):
                 with accelerator.autocast():
                     optimizer.zero_grad()
-                    model_pred = hooked_unet(
+                    model_pred = hooked_unet.forward(
                         sae_src_dict,
                         noisy_model_input, timesteps, encoder_hidden_states, class_labels=None, return_dict=False
                     )[0]
