@@ -51,7 +51,7 @@ parser.add_argument("--num_inference_steps",type=int,default=8)
 
 def main(args):
     api,accelerator,device=repo_api_init(args)
-    shape_dict=get_shape_dict(args.checkpoint,device)
+    shape_dict=get_shape_dict(args.checkpoint,device,args.size)
     
     sae_dict=get_sae_dict(args.checkpoint,device,args.nb_concepts,args.layers,args.prefix,args.step)
     img = Image.new("RGB", (512, 512), color=(255, 255, 255))
@@ -105,8 +105,8 @@ def main(args):
             sae_src_dict={
                 layer: ksae.encode(dino) for layer in dino_sae_dict
             }
-            for layer,(c,h,w) in shape_dict:
-                sae_src_dict[layer]=sae_src_dict.unsqueeze(-1).unsqueeze(-1).expand(-1,-1,h,w).to(device)
+            for layer,(b,c,h,w) in shape_dict.items():
+                sae_src_dict[layer]=sae_src_dict[layer].unsqueeze(-1).unsqueeze(-1).expand(-1,-1,h,w).to(device)
                 
             result=pipe.forward(sae_src_dict,prompt,num_inference_steps=args.num_inference_steps,height=256,width=256,return_dict=False).images
             
