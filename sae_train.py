@@ -66,7 +66,7 @@ def get_num(path):
     
 class LatentLocalDataset(torch.utils.data.Dataset):
     def __init__(self,src_dir_list:Optional[str|list[str]],checkpoint:str,step:int,model_layer:str,dino:bool,
-                 mask:bool,limit:int,flatten:bool,pooling:str,threshold:float,
+                 use_mask:bool,limit:int,flatten:bool,pooling:str,threshold:float,
                  device):
         self.model_layer=model_layer
         self.src_dir_list=src_dir_list
@@ -82,28 +82,29 @@ class LatentLocalDataset(torch.utils.data.Dataset):
         self.w=w
         self.c=c
         self.dino=dino
-        self.mask=mask
+        self.mask=use_mask
         for src_dir in src_dir_list:
-            self.np_list+=[
+            self.np_list+=sorted([
                 os.path.join(src_dir,str(step),f) for f in os.listdir(os.path.join(src_dir,str(step))) if f.endswith("npz")
-            ].sort(key=get_num)
+            ],key=get_num)
 
             if dino:
-                self.dino_list+=[
+                self.dino_list+=sorted([
                     os.path.join(src_dir,"dino",f) for f in os.listdir(os.path.join(src_dir,"dino")) if f.endswith("npy")
-                ].sort(key=get_num)
-            if mask:
-                self.mask_list+=[
+                ],key=get_num)
+            if use_mask:
+                self.mask_list+=sorted([
                     os.path.join(src_dir,"mask",f) for f in os.listdir(os.path.join(src_dir,"mask")) if f.endswith("npy")
-                ].sort(key=get_num)
-                self.pool={
-                    "max":F.max_pool2d,
-                    "avg":F.avg_pool2d
-                }[pooling]
-                mask=torch.tensor(np.load(self.mask_list[0]))
-                (m_h,m_w)=mask.size()
-                self.kernel=m_h//h
-                self.threshold=threshold
+                ],key=get_num)
+        self.pool={
+            "max":F.max_pool2d,
+            "avg":F.avg_pool2d
+        }[pooling]
+        if use_mask:
+            mask=torch.tensor(np.load(self.mask_list[0]))
+            (m_h,m_w)=mask.size()
+            self.kernel=m_h//h
+        self.threshold=threshold
         self.flatten=flatten
         
 
