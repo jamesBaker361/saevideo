@@ -32,7 +32,7 @@ parser.add_argument("--nb_concepts",type=int,default=10000,help="n concepts for 
 parser.add_argument("--sae_model",type=str,default=KSAE)
 parser.add_argument("--model_layer",type=str,default="up_blocks.1.attentions.0")
 parser.add_argument("--local_global_split",action="store_true",help="if yes, split the concepts into global and local components; global need to be the same across time and/or location")
-parser.add_argument("--src_dir_list",type=str,nargs="+")
+parser.add_argument("--src_dir_list",type=str,nargs="*")
 parser.add_argument("--dino",action="store_true",help="whether to use dino embeddings too")
 parser.add_argument("--mask",action="store_true",help="whether to mask out irrelevant tensors")
 parser.add_argument("--flatten",action="store_true",help="whether to do the whole image at once or do channel by channel")
