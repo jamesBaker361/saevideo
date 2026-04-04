@@ -84,16 +84,16 @@ class LatentLocalDataset(torch.utils.data.Dataset):
         for src_dir in src_dir_list:
             self.np_list+=[
                 os.path.join(src_dir,str(step),f) for f in os.listdir(os.path.join(src_dir,str(step))) if f.endswith("npz")
-            ][:limit]
+            ].sort(key=get_num)
 
             if dino:
                 self.dino_list+=[
                     os.path.join(src_dir,"dino",f) for f in os.listdir(os.path.join(src_dir,"dino")) if f.endswith("npy")
-                ]
+                ].sort(key=get_num)
             if mask:
                 self.mask_list+=[
                     os.path.join(src_dir,"mask",f) for f in os.listdir(os.path.join(src_dir,"mask")) if f.endswith("npy")
-                ]
+                ].sort(key=get_num)
                 self.pool={
                     "max":F.max_pool2d,
                     "avg":F.avg_pool2d
@@ -226,7 +226,7 @@ def main(args):
             }, file)
 
 
-    def load(*args,**kwargs):
+    def load(*_args,**_kwargs):
         load_dir=save_subdir
         weights_path = os.path.join(load_dir, "weights.pt")
         config_path = os.path.join(load_dir, "config.json")
@@ -267,7 +267,7 @@ def main(args):
                 dino=dino.flatten(0,1)
         if training:
             optimizer.zero_grad()
-            with accelerator.accumulate(params):
+            with accelerator.accumulate(sae_model):
                 with accelerator.autocast():
                     z_pre, z, x_hat=sae_model(activations)
                     
