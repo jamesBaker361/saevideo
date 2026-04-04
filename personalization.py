@@ -103,7 +103,7 @@ def main(args):
             dino=get_last_hidden_states(image,dino_processor,dino_model)[:, 0, :]
             print("dino size",dino.size())
             sae_src_dict={
-                layer: ksae.decode(dino) for layer in dino_sae_dict
+                layer: ksae.encode(dino) for layer in dino_sae_dict
             }
             for layer,(c,h,w) in shape_dict:
                 sae_src_dict[layer]=sae_src_dict.unsqueeze(-1).unsqueeze(-1).expand(-1,-1,h,w).to(device)
