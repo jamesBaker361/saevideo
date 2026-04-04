@@ -11,6 +11,7 @@ from copy import deepcopy
 from diffusers.utils.loading_utils import load_image
 import json
 from PIL import Image
+from loading import get_sae_dict
 
 
 import os
@@ -133,7 +134,8 @@ parser.add_argument("--key",type=str,default="chair")
 parser.add_argument("--checkpoint",type=str,default="stablediffusionapi/realistic-vision-v51")
 parser.add_argument("--num_inference_steps",type=int,default=2)
 parser.add_argument("--nb_concepts",type=int,default=10000,help="n concepts for SAE")
-parser.add_argument("--src",type=str,default="features_stablediffusionapi_realistic-vision-v51_32")
+parser.add_argument("--prefix",type=str,default="features_stablediffusionapi_realistic-vision-v51_32")
+parser.add_argument("--step",type=int,default=2)
 
 
 
@@ -153,30 +155,14 @@ def main(args):
                         "mid_block.attentions.0"
     ]
     nb_concepts=args.nb_concepts
-    step=24
-    lay_dict={k:v[0] for k,v in get_shape_dict(args.checkpoint,device).items() if k in layers}
         
     def get_unet_device_dtype(unet):
         param = next(unet.parameters())
         return param.device, param.dtype
 
     device, dtype = get_unet_device_dtype(pipe.unet)
-    sae_dict={
-        lay: TopKSAE(c,nb_concepts,).to(device,dtype) for lay,c in lay_dict.items()
-    }
-
-    shape_dict=get_shape_dict(args.checkpoint,device)
-
-    for lay,ksae in sae_dict.items():
-        if torch.cuda.is_available():
-            ksae.load_state_dict(torch.load(
-                    os.path.join("sae_model",f"{args.src}_{lay}_{step}","weights.pt")
-                    ))
-        else:
-            ksae.load_state_dict(torch.load(
-                    os.path.join("sae_model",f"{args.src}_{lay}_{step}","weights.pt"),map_location=torch.device("cpu")
-                    ))
-        ksae.requires_grad_(False)
+    shape_dict=get_shape_dict(args.checkpoint,device,64)
+    sae_dict=get_sae_dict(args.checkpoint,device,args.nb_concepts,layers,args.prefix,args.step)
 
 
 

@@ -17,7 +17,7 @@ import torch
 import time
 import torch.nn.functional as F
 import numpy as np
-
+from loading import get_sae_dict
 from experiment_helpers.loop_decorator import optimization_loop
 from experiment_helpers.data_helpers import split_data
 from experiment_helpers.init_helpers import default_parser,repo_api_init
@@ -53,16 +53,7 @@ def main(args):
     api,accelerator,device=repo_api_init(args)
     shape_dict=get_shape_dict(args.checkpoint,device)
     
-    sae_dict={
-        layer: TopKSAE(shape_dict[layer][1],args.nb_concepts) for layer in args.layers
-    }
-    
-    for layer,ksae in sae_dict.items():
-        ksae.load_state_dict(torch.load(
-                os.path.join("sae_model",f"{args.prefix}{layer}_{args.step}","weights.pt")
-                ))
-        ksae.requires_grad_(False)
-    
+    sae_dict=get_sae_dict(args.checkpoint,device,args.nb_concepts,args.layers,args.prefix,args.step)
     img = Image.new("RGB", (512, 512), color=(255, 255, 255))
     
     dino=get_last_hidden_states(img,dino_processor,dino_model)
@@ -74,12 +65,18 @@ def main(args):
     }
     
     for layer,ksae in dino_sae_dict.items():
-        ksae.load_state_dict(
-            torch.load(
-                os.path.join("sae_model",f"{args.prefix}{layer}_{args.step}","dino_weights.pt")
+        if torch.cuda.is_available():
+            ksae.load_state_dict(
+                torch.load(
+                    os.path.join("sae_model",f"{args.prefix}{layer}_{args.step}","dino_weights.pt")
+                )
             )
-        )
-        
+        else:
+            ksae.load_state_dict(
+                torch.load(
+                    os.path.join("sae_model",f"{args.prefix}{layer}_{args.step}","dino_weights.pt"),map_location=torch.device("cpu")
+                )
+            )
     #https://github.com/zhangxulu1996/awesome-personalization
     
     data=PersonaDataset(args.subset,(args.size,args.size))

@@ -159,14 +159,8 @@ def main(args):
     
     print("real activation size ",batch["act"].size())
     
-    try:
-        raw_activations=torch.tensor(np.load(os.path.join(args.src_dir_list[0], "0","0.npz"))[args.model_layer][0])
-    except:
-        raw_activations=torch.tensor(np.load(os.path.join(args.src_dir_list[0], "0","act_0.npz"))[args.model_layer][0])
-    act_size=raw_activations.size()
-    (c,h,w)=act_size
-        
-    print("rwar activation size ",act_size)
+    shape_dict=get_shape_dict(args.checkpoint)
+    (c,h,w)=shape_dict[args.model_layer]
     
     if args.flatten:
     

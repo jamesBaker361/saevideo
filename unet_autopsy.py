@@ -33,6 +33,7 @@ def main():
 
     for checkpoint in ["SimianLuo/LCM_Dreamshaper_v7","Lykon/dreamshaper-7","stabilityai/stable-diffusion-xl-base-1.0","stablediffusionapi/realistic-vision-v51"]:
         print("\n\n\n\n")
+        print(checkpoint)
         output_data[checkpoint]=get_shape_dict(checkpoint,accelerator.device)
         
     with open("autopsy.json","w") as file:
