@@ -179,10 +179,10 @@ def main(args):
 
     batch_size=1
     #maybe do one of these for each entity (which )
-    sae_src_dict=torch.nn.ParameterDict({
+    sae_src_dict={
             lay: torch.nn.Parameter(torch.randn(1, nb_concepts)).to(device)
             for lay in layers
-        })#these are trainable!
+        }#these are trainable!
     
     
     params=[v for v in sae_src_dict.values()]
