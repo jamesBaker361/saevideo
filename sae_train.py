@@ -11,6 +11,7 @@ from overcomplete.sae import TopKSAE,QSAE, JumpSAE, BatchTopKSAE,losses
 from overcomplete.sae.trackers import DeadCodeTracker
 import numpy as np
 import torch.nn.functional as F
+from unet_autopsy import get_shape_dict
 import json
 from typing import Optional
 
@@ -64,7 +65,7 @@ def get_num(path):
     return int(nums[-1])  # last number in filename
     
 class LatentLocalDataset(torch.utils.data.Dataset):
-    def __init__(self,src_dir_list:Optional[str|list[str]],step:int,model_layer:str,dino:bool,mask:bool,limit:int,flatten:bool,pooling:str,threshold:float):
+    def __init__(self,src_dir_list:Optional[str|list[str]],checkpoint:str,step:int,model_layer:str,dino:bool,mask:bool,limit:int,flatten:bool,pooling:str,threshold:float):
         self.model_layer=model_layer
         self.src_dir_list=src_dir_list
         super().__init__()
@@ -73,23 +74,18 @@ class LatentLocalDataset(torch.utils.data.Dataset):
         self.np_list=[]
         self.dino_list=[]
         self.mask_list=[]
+        shape_dict=get_shape_dict(checkpoint)
+        (c,h,w)=shape_dict[model_layer]
+        self.h=h
+        self.w=w
+        self.c=c
+        self.dino=dino
+        self.mask=mask
         for src_dir in src_dir_list:
             self.np_list+=[
                 os.path.join(src_dir,str(step),f) for f in os.listdir(os.path.join(src_dir,str(step))) if f.endswith("npz")
             ][:limit]
-            prefix=""
-            try:
-                raw_activations=torch.tensor(np.load(os.path.join(src_dir, "0",f"{prefix}0.npz"))[args.model_layer][0])
-            except:
-                prefix="act_"
-                raw_activations=torch.tensor(np.load(os.path.join(src_dir, "0",f"{prefix}0.npz"))[args.model_layer][0])
-            act_size=raw_activations.size()
-            (c,h,w)=act_size
-            self.h=h
-            self.w=w
-            self.c=c
-            self.dino=dino
-            self.mask=mask
+
             if dino:
                 self.dino_list+=[
                     os.path.join(src_dir,"dino",f) for f in os.listdir(os.path.join(src_dir,"dino")) if f.endswith("npy")
@@ -153,7 +149,8 @@ def main(args):
         KSAE:losses.mse_l1 #TODO: find losses for other models
     }[args.sae_model]
 
-    dataset= LatentLocalDataset(args.src_dir_list,args.step,args.model_layer,args.dino,args.mask,args.limit,args.flatten,args.pooling,args.threshold)
+    dataset= LatentLocalDataset(args.src_dir_list,args.checkpoint,
+                                args.step,args.model_layer,args.dino,args.mask,args.limit,args.flatten,args.pooling,args.threshold)
     
     train_loader,test_loader,val_loader=split_data(dataset,0.95,args.batch_size)
     

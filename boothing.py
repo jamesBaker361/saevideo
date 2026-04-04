@@ -27,7 +27,7 @@ from experiment_helpers.data_helpers import split_data
 from experiment_helpers.init_helpers import default_parser,repo_api_init
 from diffusers.image_processor import VaeImageProcessor
 from torch.utils.data import DataLoader,Dataset
-from unet_autopsy import get_feature_dict
+from unet_autopsy import get_shape_dict
 
 
 def tokenize_prompt(tokenizer, prompt, tokenizer_max_length=None):
@@ -84,7 +84,7 @@ class DreamboothDataset(Dataset):
 
         
         unique_token="<sks>"
-        samples_per_epoch=6
+        samples_per_epoch=128 #this has to be high in case we want large batch sizes
         
         with open("pcs_dataset/info.json","r") as f:
             mapping=json.load(f)
@@ -132,6 +132,8 @@ parser.add_argument("--weight",type=float,default=0.5)
 parser.add_argument("--key",type=str,default="chair")
 parser.add_argument("--checkpoint",type=str,default="stablediffusionapi/realistic-vision-v51")
 parser.add_argument("--num_inference_steps",type=int,default=2)
+parser.add_argument("--nb_concepts",type=int,default=10000,help="n concepts for SAE")
+parser.add_argument("--src",type=str,default="features_stablediffusionapi_realistic-vision-v51_32")
 
 
 
@@ -150,11 +152,9 @@ def main(args):
                         "up_blocks.3.attentions.1",#"up_blocks.3.upsamplers",
                         "mid_block.attentions.0"
     ]
-    nb_concepts=10000
-    c_list=[]
+    nb_concepts=args.nb_concepts
     step=24
-    src_dir=f"features_stablediffusionapi_realistic-vision-v51_32"
-    lay_dict={k:v[0] for k,v in get_feature_dict(args.checkpoint,device).items() if k in layers}
+    lay_dict={k:v[0] for k,v in get_shape_dict(args.checkpoint,device).items() if k in layers}
         
     def get_unet_device_dtype(unet):
         param = next(unet.parameters())
@@ -165,12 +165,17 @@ def main(args):
         lay: TopKSAE(c,nb_concepts,).to(device,dtype) for lay,c in lay_dict.items()
     }
 
-    shape_dict=get_feature_dict(args.checkpoint,device)
+    shape_dict=get_shape_dict(args.checkpoint,device)
 
     for lay,ksae in sae_dict.items():
-        ksae.load_state_dict(torch.load(
-                os.path.join("sae_model",f"{src_dir}_{lay}_{step}","weights.pt")
-                ))
+        if torch.cuda.is_available():
+            ksae.load_state_dict(torch.load(
+                    os.path.join("sae_model",f"{args.src}_{lay}_{step}","weights.pt")
+                    ))
+        else:
+            ksae.load_state_dict(torch.load(
+                    os.path.join("sae_model",f"{args.src}_{lay}_{step}","weights.pt"),map_location=torch.device("cpu")
+                    ))
         ksae.requires_grad_(False)
 
 
@@ -185,7 +190,6 @@ def main(args):
         model.requires_grad_(False)
     
     hooked_unet=HookUNet(unet,layers,sae_dict,args.weight)
-    blank_unet=deepcopy(unet)
 
     batch_size=1
     #maybe do one of these for each entity (which )
@@ -208,7 +212,7 @@ def main(args):
         for row in data:
             img=row["image"]
             encoder_hidden_states=row["input_ids"]
-            latents=vae.encode(img).latent_dict.sample()
+            latents=vae.encode(img).latent_dist.sample()
             noise = torch.randn_like(latents)
             
             timesteps = torch.randint(
@@ -246,7 +250,7 @@ def main(args):
         })
         print("loss",np.mean(loss_list))
     os.makedirs(args.save_dir,exist_ok=True)
-    for lay,t in sae_src_dict:
+    for lay,t in sae_src_dict.items():
         new_dir=os.path.join(args.save_dir,lay)
         os.makedirs(new_dir,exist_ok=True)
         new_path=os.path.join(new_dir,"weights.pt")

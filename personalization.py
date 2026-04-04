@@ -21,7 +21,7 @@ import numpy as np
 from experiment_helpers.loop_decorator import optimization_loop
 from experiment_helpers.data_helpers import split_data
 from experiment_helpers.init_helpers import default_parser,repo_api_init
-from unet_autopsy import get_feature_dict
+from unet_autopsy import get_shape_dict
 from overcomplete import TopKSAE
 from dino_extract import dino_model,dino_processor,get_last_hidden_states
 from PIL import Image
@@ -31,7 +31,7 @@ from diffusers import DiffusionPipeline
 from eval_pcs import CLIPEvaluator
 
 parser=default_parser()
-parser.add_argument("--layers",nargs="*")
+parser.add_argument("--layers",nargs="*",default=["down_blocks.1.attentions.1","down_blocks.2.attentions.1"])
 parser.add_argument("--hidden_dim",nargs='*',help=" hidden dim of sae, if len = 1 then we default to all of them being the one thing")
 parser.add_argument("--checkpoint",type=str,default="SimianLuo/LCM_Dreamshaper_v7")
 parser.add_argument("--nb_concepts",type=int,default=10000,help="n concepts for SAE")
@@ -51,7 +51,7 @@ parser.add_argument("--num_inference_steps",type=int,default=8)
 
 def main(args):
     api,accelerator,device=repo_api_init(args)
-    shape_dict=get_feature_dict(args.checkpoint,device)
+    shape_dict=get_shape_dict(args.checkpoint,device)
     
     sae_dict={
         layer: TopKSAE(shape_dict[layer][1],args.nb_concepts) for layer in args.layers

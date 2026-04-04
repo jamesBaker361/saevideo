@@ -10,7 +10,7 @@ parser.add_argument("--checkpoint",type=str,default="SimianLuo/LCM_Dreamshaper_v
 
 args=parser.parse_args()
 
-def get_feature_dict(checkpoint:str,device)->dict[str,list[int]]:
+def get_shape_dict(checkpoint:str,device,size:int=64)->dict[str,list[int]]:
     output_data={}
     pipe =DiffusionPipeline.from_pretrained(checkpoint).to(device,dtype=torch.float16)
     unet=pipe.unet
@@ -18,7 +18,7 @@ def get_feature_dict(checkpoint:str,device)->dict[str,list[int]]:
 
     hw=HookWrapper(pipe,names)
     
-    _,act=hw("image",num_inference_steps=12, height=256,width=256)
+    _,act=hw("image",num_inference_steps=2, height=size,width=size)
 
     for k,v in act.items():
         output_data[k]=[t for t in v[0].size()]
@@ -33,7 +33,7 @@ def main():
 
     for checkpoint in ["SimianLuo/LCM_Dreamshaper_v7","Lykon/dreamshaper-7","stabilityai/stable-diffusion-xl-base-1.0","stablediffusionapi/realistic-vision-v51"]:
         print("\n\n\n\n")
-        output_data[checkpoint]=get_feature_dict(checkpoint,accelerator.device)
+        output_data[checkpoint]=get_shape_dict(checkpoint,accelerator.device)
         
     with open("autopsy.json","w") as file:
         json.dump(output_data,file)

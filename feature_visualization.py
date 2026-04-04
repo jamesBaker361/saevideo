@@ -1,6 +1,5 @@
 from diffusers import DiffusionPipeline
 from diffusers.pipelines.stable_diffusion.pipeline_stable_diffusion import retrieve_timesteps
-from hook_wrapper import HookWrapper
 import argparse
 import accelerate
 from torch.optim import AdamW
@@ -11,7 +10,7 @@ from overcomplete.sae import TopKSAE,QSAE, JumpSAE, BatchTopKSAE,losses,SAE
 from overcomplete.sae.trackers import DeadCodeTracker
 import wandb
 import os
-from unet_autopsy import get_feature_dict
+from unet_autopsy import get_shape_dict
 
 KSAE="ksae"
 JUMP="jump"
@@ -22,7 +21,7 @@ QUANTIZED="quantized"
 parser=argparse.ArgumentParser()
 parser.add_argument("--checkpoint",type=str,default="SimianLuo/LCM_Dreamshaper_v7")
 parser.add_argument("--epochs",type=int,default=10000)
-parser.add_argument("--target_layer",type=str,default='up_blocks.3.attentions.0.proj_in')
+parser.add_argument("--target_layer",type=str,default='up_blocks.3.attentions.0')
 parser.add_argument("--sae_checkpoint",type=str,default="abcdfsf")
 parser.add_argument("--lr",type=float,default=0.05)
 parser.add_argument("--num_inference_steps",type=int,default=4)
@@ -67,10 +66,7 @@ def main(args):
         def hook(module, input, output):
             if type(output)==tuple:
                 output=output[0]
-            try:
-                activations.append(output)
-            except:
-                print(type(module),type(output))
+            activations.append(output)
         return hook
 
     for name, module in unet.named_modules():
@@ -87,11 +83,14 @@ def main(args):
             
     latent = torch.nn.Parameter(vae.config.scaling_factor* torch.randn(1,4,args.size,args.size,device=device))
     
-    output_dict=get_feature_dict(args.checkpoint,device)
+    output_dict=get_shape_dict(args.checkpoint,device)
     
     (b,c,h,w)=output_dict[target_layer]
     
     sae:SAE=sae_model_class(c,args.nb_concepts)
+    sae.load_state_dict(torch.load(args.sae_checkpoint,map_location=device))
+    sae.to(device)
+    sae.eval()
     
     os.makedirs(args.save_dir,exist_ok=True)
     start_channel=len([f for f in os.listdir(args.save_dir) if f.endswith("png")])
@@ -109,11 +108,12 @@ def main(args):
                 unet(latent, t, prompt_embeds)
 
                 act = activations[-1]
+                activations.clear()
                 act:torch.Tensor=act.permute((0,2,3,1))
                 print("act size",act.size())
                 act=act.flatten(0,2)
-                act=sae.encode(act)
-                print("act size",act[0].size())
+                act=sae.encode(act)[0]
+                print("act size",act.size())
 
                 feature_loss = -act[:,channel].mean()
 
@@ -122,7 +122,7 @@ def main(args):
 
                 loss = feature_loss + 0.01*reg_tv + 0.001*reg_l2
 
-                loss.backward()
+                loss.backward(retain_graph=True)
                 optimizer.step()
 
                 with torch.no_grad():
