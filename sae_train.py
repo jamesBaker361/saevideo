@@ -113,8 +113,7 @@ class LatentLocalDataset(torch.utils.data.Dataset):
     
     def __getitem__(self, index):
         ret={"act": torch.tensor(np.load(self.np_list[index])[self.model_layer][0])}
-        print("act size",ret["act"].size())
-        print("act path ",self.np_list[index])
+        (b,h,w)=ret["act"].size()
         num=get_num(self.np_list[index])
         if self.mask:
             mask=np.load(self.mask_list[index])
@@ -123,7 +122,7 @@ class LatentLocalDataset(torch.utils.data.Dataset):
             print("mask size ",ret["mask"].size())
             print("mask path ",self.mask_list[index])
 
-            ret["mask"]=self.pool(ret["mask"],kernel_size=self.kernel,stride=self.kernel)
+            ret["mask"]=F.interpolate(ret["mask"],(h,w))
             ret["mask"] = (ret["mask"] > self.threshold).to(torch.uint8)
 
             ret["act"]=ret["mask"]*ret["act"]
