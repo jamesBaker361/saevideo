@@ -52,8 +52,8 @@ class MonkeyModule(torch.nn.Module):
                 return x
             (b,c,h,w)=x.size()
             if len(self.output.size())==2:
-                (_,c)=self.output.size()
-                self.output=self.output.view(1,c,1,1).expand(2,c,h,w)
+                (b,c)=self.output.size()
+                self.output=self.output.view(1,c,1,1).expand(b,c,h,w)
             out = self.output.to(x.device, x.dtype)
             print(self.name,self.output.size(),x.size())
             return (self.weight * out) + ((1 - self.weight) * x)
@@ -90,8 +90,7 @@ def set_by_path(obj, path: str, new_module):
 def getattr_named(unet:UNet2DConditionModel,target_name:str):
     for name, module in unet.named_modules():
         if name == target_name:
-            layer = module
-            return layer
+            return module
     return None
 
 class HookPipe:
@@ -130,17 +129,28 @@ class HookPipe:
     
     
 class HookUNet:
-    def __init__(self,unet:UNet2DConditionModel,layers:list, sae_dict:dict, weight:float):
+    def __init__(self,unet:UNet2DConditionModel,layers:list, sae_dict:dict, weight:float,cross_attn_cache:bool=False):
         
         self.unet=unet
         self.layers = set(layers)  # faster lookup
         self.sae_dict = sae_dict
         self.weight = weight
         
+        def save_hook(name):
+            def hook(module, input, output):
+                if type(output)==tuple:
+                    output=output[0]
+                setattr(module,"cached_output",output)
+            return hook
+        
         matches = []
         for name, module in self.unet.named_modules():
             if name in self.layers:
                 matches.append((name, module))
+                
+            if cross_attn_cache:
+                if name.find("attn2.to_q") !=-1 or name.find("attn2.to_k") !=-1 or name.find("attn2.to_v") !=-1:
+                    module.register_forward_hook(save_hook(name))
 
         # Now modify AFTER iteration
         for name, module in matches:
@@ -151,6 +161,9 @@ class HookUNet:
             wrapped = MonkeyModule(module, weight,name)
             set_by_path(self.unet, name, wrapped)
             print(f"set {name}")
+        self.cross_attn_cache=cross_attn_cache
+        
+            
             
     def forward(self,sae_src_dict:dict[torch.Tensor],*args,**kwargs):
         for layer in self.layers:  #,self.sae_dict,sae_src_dict):

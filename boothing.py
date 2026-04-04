@@ -216,7 +216,7 @@ def main(args):
             with accelerator.accumulate(params):
                 with accelerator.autocast():
                     optimizer.zero_grad()
-                    model_pred = hooked_unet.forward( #add cross attn matching attn2.to_k
+                    model_pred = hooked_unet.forward( #TODO: add cross attn matching attn2.to_k
                         sae_src_dict,
                         noisy_model_input, timesteps, encoder_hidden_states, class_labels=None, return_dict=False
                     )[0]
