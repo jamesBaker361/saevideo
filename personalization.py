@@ -110,9 +110,9 @@ def main(args):
                 layer: sae_dict[layer].decode(ksae.encode(dino)[1]) for layer in dino_sae_dict
             }
                 
-            result=pipe.forward(sae_src_dict,prompt,num_inference_steps=args.num_inference_steps,height=256,width=256,return_dict=True).images[0]
+            result=pipe.forward(sae_src_dict,prompt,num_inference_steps=args.num_inference_steps,height=256,width=256,return_dict=True,output_type="pil").images[0]
             
-            clip_image_alignment.append(evaluator.img_to_img_similarity(result,image).cpu().detach().numpy())
+            clip_image_alignment.append(evaluator.img_to_img_similarity(result,row["image_pil"]).cpu().detach().numpy())
             clip_text_alignment.append(evaluator.txt_to_img_similarity(result,prompt).cpu().detach().numpy())
         
     
