@@ -114,29 +114,30 @@ class LatentLocalDataset(torch.utils.data.Dataset):
     
     def __getitem__(self, index):
         ret={"act": torch.tensor(np.load(self.np_list[index])[self.model_layer][0])}
-        (b,h,w)=ret["act"].size()
+        (c,h,w)=ret["act"].size()
         num=get_num(self.np_list[index])
         if self.mask:
             mask=np.load(self.mask_list[index])
             ret["mask"] = torch.tensor(mask).unsqueeze(0)
             
             print("mask size ",ret["mask"].size())
-            print("mask path ",self.mask_list[index])
+            #print("mask path ",self.mask_list[index])
 
-            ret["mask"]=Resize((h,w))(ret["mask"])
+            ret["mask"]=Resize((h,w),)(ret["mask"])
             ret["mask"] = (ret["mask"] > self.threshold).to(torch.uint8)
 
             ret["act"]=ret["mask"]*ret["act"]
         if self.flatten:
             ret["act"]=ret["act"].flatten()
         else:
-            ret["act"]=ret["act"].permute(1,2,0).flatten(0,1)
+            ret["act"]=ret["act"].permute(1,2,0).flatten(0,1) # c,h,w -> (h,w,c) -> (hw,c)
         if self.dino:
             ret["dino"]=torch.tensor(np.load(self.dino_list[index])[0][0])
             if not self.flatten:
-                ret["dino"]=ret["dino"].unsqueeze(0).expand(self.h*self.w, 384)
+                ret["dino"]=ret["dino"].unsqueeze(-1).unsqueeze(-1).expand() #384 -> 384,1,1 -> 384,h,w
                 if self.mask:
-                    ret["dino"]=ret["dino"]*ret["mask"].flatten().unsqueeze(-1)
+                    ret["dino"]=ret["dino"]*ret["mask"]
+                ret["dino"]=ret["dino"].permute(1,2,0).flatten(0,1) # 384,h,w -> (384,w,c) -> (hw,384)
             
             
         return ret
@@ -184,16 +185,16 @@ def main(args):
         dino=batch["dino"]
         print("dino size ",dino.size())
         if args.flatten:
-            (b,dc)=dino.size()
+            (b,dc)=dino.size() #(b,384hw)
         else:
-            (b,hw,dc)=dino.size()
+            (b,hw,dc)=dino.size() #(b,hw,384)
         dino_sae_model=sae_model_class(dc,args.nb_concepts,device=device)
         params.extend([p for p in dino_sae_model.parameters()])
         model_dict["dino_sae"]=dino_sae_model
         
     act=batch["act"]
     if not args.flatten:
-        act=act.flatten(0,1)
+        act=act.flatten(0,1) #(b,hw,c) -> (bhw,c)
     with accelerator.autocast():
         z_pre, z, x_hat=sae_model(act.to(device))
     dead_tracker = DeadCodeTracker(z.size()[1], device)
@@ -275,7 +276,10 @@ def main(args):
                 dino=dino.flatten(0,1)
         if training:
             optimizer.zero_grad()
-            with accelerator.accumulate(sae_model):
+            models=[sae_model]
+            if args.dino:
+                models.append(dino_sae_model)
+            with accelerator.accumulate(*models):
                 with accelerator.autocast():
                     z_pre, z, x_hat=sae_model(activations)
                     
