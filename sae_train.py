@@ -134,7 +134,7 @@ class LatentLocalDataset(torch.utils.data.Dataset):
         if self.dino:
             ret["dino"]=torch.tensor(np.load(self.dino_list[index])[0][0])
             if not self.flatten:
-                ret["dino"]=ret["dino"].unsqueeze(-1).unsqueeze(-1).expand() #384 -> 384,1,1 -> 384,h,w
+                ret["dino"]=ret["dino"].unsqueeze(-1).unsqueeze(-1).expand(-1,h,w) #384 -> 384,1,1 -> 384,h,w
                 if self.mask:
                     ret["dino"]=ret["dino"]*ret["mask"]
                 ret["dino"]=ret["dino"].permute(1,2,0).flatten(0,1) # 384,h,w -> (384,w,c) -> (hw,384)
