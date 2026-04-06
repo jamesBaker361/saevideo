@@ -104,7 +104,7 @@ def main(args):
             dino=get_last_hidden_states(image,dino_processor,dino_model)[:, 0, :]
             print("dino size",dino.size())
             sae_src_dict={
-                layer: ksae.encode(dino) for layer in dino_sae_dict
+                layer: ksae.encode(dino)[1] for layer in dino_sae_dict
             }
             for layer,shape in shape_dict.items():
                 if layer in sae_src_dict:
