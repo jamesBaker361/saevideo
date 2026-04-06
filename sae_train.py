@@ -119,8 +119,6 @@ class LatentLocalDataset(torch.utils.data.Dataset):
         if self.mask:
             mask=np.load(self.mask_list[index])
             ret["mask"] = torch.tensor(mask).unsqueeze(0)
-            
-            print("mask size ",ret["mask"].size())
             #print("mask path ",self.mask_list[index])
 
             ret["mask"]=Resize((h,w),)(ret["mask"])
