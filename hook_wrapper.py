@@ -130,11 +130,9 @@ class HookPipe:
     
     def forward(self,sae_src_dict:dict[torch.Tensor],*args,**kwargs):
         for layer in self.layers:  #,self.sae_dict,sae_src_dict):
-            sae=self.sae_dict[layer]
             src=sae_src_dict[layer]
-            output=sae.decode(src)
             
-            getattr_named(self.pipe.unet,layer).output=output
+            getattr_named(self.pipe.unet,layer).output=src
         
         return self.pipe(*args,**kwargs)    
     
