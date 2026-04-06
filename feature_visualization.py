@@ -23,7 +23,7 @@ parser.add_argument("--checkpoint",type=str,default="SimianLuo/LCM_Dreamshaper_v
 parser.add_argument("--epochs",type=int,default=10000)
 parser.add_argument("--target_layer",type=str,default='up_blocks.1.attentions.0')
 parser.add_argument("--sae_checkpoint",type=str,default="sae_model/seg_ip_flickr_up_blocks.1.attentions.0_2/weights.pt")
-parser.add_argument("--lr",type=float,default=0.05)
+parser.add_argument("--lr",type=float,default=0.1)
 parser.add_argument("--num_inference_steps",type=int,default=4)
 parser.add_argument("--channel",type=int,default=0,help="channel to optimize")
 parser.add_argument("--size",type=int,default=64,help="latent size (actual image will be size * 8)")
@@ -61,7 +61,9 @@ def main(args):
         QUANTIZED:QSAE
     }[args.sae_model]
 
-    timesteps,num_inference_steps=retrieve_timesteps(pipe.scheduler,args.num_inference_steps)
+    #timesteps,num_inference_steps=retrieve_timesteps(pipe.scheduler,args.num_inference_steps)
+    
+    timesteps=[0 for _ in range(1000)]
 
     activations=None
 
