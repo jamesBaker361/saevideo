@@ -42,6 +42,7 @@ parser.add_argument("--step",type=int,default=2)
 parser.add_argument("--subset",type=str,default="subject",help="subject or object or face")
 parser.add_argument("--size",type=int,default=256)
 parser.add_argument("--num_inference_steps",type=int,default=8)
+#TODO: add monkey patching
             
 #use persona dataset
 
@@ -106,9 +107,9 @@ def main(args):
                 layer: ksae.encode(dino) for layer in dino_sae_dict
             }
             for layer,shape in shape_dict.items():
-                print(shape)
-                (b,c,h,w)=shape
-                sae_src_dict[layer]=sae_src_dict[layer].unsqueeze(-1).unsqueeze(-1).expand(-1,-1,h,w).to(device)
+                if layer in sae_src_dict:
+                    (b,c,h,w)=shape
+                    sae_src_dict[layer]=sae_src_dict[layer].unsqueeze(-1).unsqueeze(-1).expand(-1,-1,h,w).to(device)
                 
             result=pipe.forward(sae_src_dict,prompt,num_inference_steps=args.num_inference_steps,height=256,width=256,return_dict=False).images
             
