@@ -84,7 +84,7 @@ def main(args):
     data=PersonaDataset(args.subset,(args.size,args.size))
     
     pipe=HookPipe(
-        DiffusionPipeline.from_pretrained(args.checkpoint).to(device),args.layers,sae_dict,shape_dict,0.5
+        DiffusionPipeline.from_pretrained(args.checkpoint,device=device),args.layers,sae_dict,shape_dict,0.5
     )
     
     clip_text_alignment=[]

@@ -177,6 +177,8 @@ def main(args):
         sae_model=sae_model_class(c*h*w,args.nb_concepts,device=device)
     else:
         sae_model=sae_model_class(c,args.nb_concepts,device=device)
+        
+    
     params=[p for p in sae_model.parameters()]
     model_dict={
        "sae" :sae_model
