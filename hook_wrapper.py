@@ -35,12 +35,14 @@ class HookWrapper:
         return result,self.activations
     
 class MonkeyModule(torch.nn.Module):
-    def __init__(self, underlying:torch.nn.Module,weight:float,name:str,*args, **kwargs):
+    def __init__(self, underlying:torch.nn.Module,weight:float,name:str,keys:list[int]=[],cross_attn_cache:bool=False,*args, **kwargs):
         super().__init__(*args, **kwargs)
         self.underlying=underlying
         self.output=None
         self.weight=weight
         self.name=name
+        self.keys=keys
+        self.cross_attn_cache=cross_attn_cache
         
     def forward(self, *args, **kwargs):
         result = self.underlying(*args, **kwargs)
@@ -51,11 +53,20 @@ class MonkeyModule(torch.nn.Module):
             if self.output is None:
                 return x
             (b,c,h,w)=x.size()
+            
+            if self.keys!=[] and self.cross_attn_cache:
+                cached={}
+                for name,module in self.underlying.named_children():
+                    for n in [1,2]:
+                        for a in ["k,q,v"]:
+                            target=f"attn{n}.to_{a}"
+                            if name==target:
+                                cached[target]=module.cached_output
+            
             if len(self.output.size())==2:
                 (b,c)=self.output.size()
                 self.output=self.output.view(1,c,1,1).expand(b,c,h,w)
             out = self.output.to(x.device, x.dtype)
-            print(self.name,self.output.size(),x.size())
             return (self.weight * out) + ((1 - self.weight) * x)
 
         if isinstance(result, tuple):
@@ -149,7 +160,7 @@ class HookUNet:
                 matches.append((name, module))
                 
             if cross_attn_cache:
-                if name.find("attn2.to_q") !=-1 or name.find("attn2.to_k") !=-1 or name.find("attn2.to_v") !=-1:
+                if name.find("to_q") !=-1 or name.find("to_k") !=-1 or name.find("to_v") !=-1:
                     module.register_forward_hook(save_hook(name))
 
         # Now modify AFTER iteration
