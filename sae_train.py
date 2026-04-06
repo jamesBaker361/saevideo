@@ -169,6 +169,7 @@ def main(args):
     print("real activation size ",batch["act"].size())
     
     shape_dict=get_shape_dict(args.checkpoint,device)
+    print(shape_dict[args.model_layer])
     (c,h,w)=shape_dict[args.model_layer]
     
     if args.flatten:
