@@ -107,7 +107,7 @@ def main(args):
             dino=get_last_hidden_states(image,dino_processor,dino_model)[:, 0, :].to(device)
             print("dino size",dino.size())
             sae_src_dict={
-                layer: sae_dict.decode(ksae.encode(dino)[1]) for layer in dino_sae_dict
+                layer: sae_dict[layer].decode(ksae.encode(dino)[1]) for layer in dino_sae_dict
             }
                 
             result=pipe.forward(sae_src_dict,prompt,num_inference_steps=args.num_inference_steps,height=256,width=256,return_dict=False).images
