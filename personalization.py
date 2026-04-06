@@ -105,7 +105,9 @@ def main(args):
             sae_src_dict={
                 layer: ksae.encode(dino) for layer in dino_sae_dict
             }
-            for layer,(b,c,h,w) in shape_dict.items():
+            for layer,shape in shape_dict.items():
+                print(shape)
+                (b,c,h,w)=shape
                 sae_src_dict[layer]=sae_src_dict[layer].unsqueeze(-1).unsqueeze(-1).expand(-1,-1,h,w).to(device)
                 
             result=pipe.forward(sae_src_dict,prompt,num_inference_steps=args.num_inference_steps,height=256,width=256,return_dict=False).images
