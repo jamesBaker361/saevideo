@@ -123,7 +123,7 @@ class LatentLocalDataset(torch.utils.data.Dataset):
             print("mask size ",ret["mask"].size())
             print("mask path ",self.mask_list[index])
 
-            ret["mask"]=Resize(h,w)(ret["mask"])
+            ret["mask"]=Resize((h,w))(ret["mask"])
             ret["mask"] = (ret["mask"] > self.threshold).to(torch.uint8)
 
             ret["act"]=ret["mask"]*ret["act"]
