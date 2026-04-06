@@ -101,7 +101,7 @@ def main(args):
             image=row["image"]
             prompt=row["text"]
             
-            dino=get_last_hidden_states(image,dino_processor,dino_model)[:, 0, :]
+            dino=get_last_hidden_states(image,dino_processor,dino_model)[:, 0, :].to(device)
             print("dino size",dino.size())
             sae_src_dict={
                 layer: ksae.encode(dino)[1] for layer in dino_sae_dict
