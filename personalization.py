@@ -112,7 +112,10 @@ def main(args):
             for layer,shape in shape_dict.items():
                 if layer in sae_src_dict:
                     (b,c,h,w)=shape
+                    print(shape)
+                    print(sae_src_dict[layer].size())
                     sae_src_dict[layer]=sae_src_dict[layer].unsqueeze(-1).unsqueeze(-1).expand(-1,-1,h,w).to(device)
+                    print(sae_src_dict[layer].size())
                 
             result=pipe.forward(sae_src_dict,prompt,num_inference_steps=args.num_inference_steps,height=256,width=256,return_dict=False).images
             
