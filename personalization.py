@@ -63,7 +63,7 @@ def main(args):
     
     
     dino_sae_dict={
-        layer: TopKSAE(dc,args.nb_concepts) for layer in args.layers
+        layer: TopKSAE(dc,args.nb_concepts,device=device) for layer in args.layers
     }
     
     for layer,ksae in dino_sae_dict.items():
