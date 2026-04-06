@@ -29,6 +29,7 @@ from data_helpers import PersonaDataset
 from hook_wrapper import HookPipe
 from diffusers import DiffusionPipeline
 from eval_pcs import CLIPEvaluator
+import wandb
 
 parser=default_parser()
 parser.add_argument("--layers",nargs="*",default=["down_blocks.1.attentions.1","down_blocks.2.attentions.1"])
@@ -105,12 +106,15 @@ def main(args):
             prompt=row["text"]
             
             dino=get_last_hidden_states(image,dino_processor,dino_model)[:, 0, :].to(device)
-            print("dino size",dino.size())
             sae_src_dict={
                 layer: sae_dict[layer].decode(ksae.encode(dino)[1]) for layer in dino_sae_dict
             }
                 
             result=pipe.forward(sae_src_dict,prompt,num_inference_steps=args.num_inference_steps,height=256,width=256,return_dict=True,output_type="pil").images[0]
+            
+            accelerator.log({
+                f"img_{r}":wandb.Image()
+            })
             
             clip_image_alignment.append(evaluator.img_to_img_similarity(result,row["image_pil"]).cpu().detach().numpy())
             clip_text_alignment.append(evaluator.txt_to_img_similarity(result,prompt).cpu().detach().numpy())
