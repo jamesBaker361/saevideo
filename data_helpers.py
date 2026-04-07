@@ -21,6 +21,7 @@ class PersonaDataset(Dataset):
         self.text_list=[
             
         ]
+        self.keyword_list=[]
         if subset=="subject":
             mapping_sub=mapping["subjects"]
         
@@ -33,15 +34,19 @@ class PersonaDataset(Dataset):
                 for prompt in prompt_list:
                     self.text_list.append(prompt.replace("{0} {1}",v))
                     self.path_list.append(os.path.join("pcs_dataset","subjects",k,"00.jpg"))
+                    self.keyword_list.append(k)
             
         elif subset=="face":
             mapping_face=mapping["face"]
             
             prompt_list=mapping_face["prompt_accessory"]+mapping_face["prompt_context"]+mapping_face["prompt_action"]+mapping_face["prompt_style"]
             
-            for prompt in prompt_list:
-                self.text_list.append(prompt.replace("{0} {1}",v))
-                self.path_list.append(os.path.join("pcs_dataset","face",k,"face.jpg"))
+            for k,v in mapping_face["id_with_gender"].items():
+            
+                for prompt in prompt_list:
+                    self.text_list.append(prompt.replace("{0} {1}",v))
+                    self.path_list.append(os.path.join("pcs_dataset","face",k,"face.jpg"))
+                    self.keyword_list.append(k)
             
         elif subset=="style":
             mapping_style=mapping["style"]
@@ -56,5 +61,6 @@ class PersonaDataset(Dataset):
                 Image.open(self.path_list[index]).resize(self.size)
             ),
             "image_pil":Image.open(self.path_list[index]).resize(self.size),
-            "text":self.text_list[index]
+            "text":self.text_list[index],
+            "keyword":self.keyword_list[index]
         }
