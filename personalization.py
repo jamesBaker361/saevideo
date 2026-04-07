@@ -115,7 +115,7 @@ def main(args):
             result=pipe.forward(sae_src_dict,prompt,num_inference_steps=args.num_inference_steps,height=256,width=256,return_dict=True,output_type="pil").images[0]
             
             accelerator.log({
-                f"img_{r}":wandb.Image()
+                f"img_{r}":wandb.Image(result)
             })
             
             clip_image_alignment.append(evaluator.img_to_img_similarity(result,row["image_pil"]).cpu().detach().numpy())
