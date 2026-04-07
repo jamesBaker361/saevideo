@@ -16,11 +16,11 @@ def get_sae_dict(checkpoint:str,device,nb_concepts:int,layers:list[str],prefix:s
     for layer,ksae in sae_dict.items():
         if torch.cuda.is_available():
             ksae.load_state_dict(torch.load(
-                    os.path.join("sae_model",f"{prefix}{layer}_{step}",weight_name)
+                    os.path.join("sae_model",prefix,layer,step,weight_name)
                     ))
         else:
             ksae.load_state_dict(torch.load(
-                    os.path.join("sae_model",f"{prefix}{layer}_{step}",weight_name),map_location=torch.device("cpu")
+                    os.path.join("sae_model",prefix,layer,step,weight_name),map_location=torch.device("cpu")
                     ))
         ksae.requires_grad_(False)
         

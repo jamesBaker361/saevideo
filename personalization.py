@@ -74,13 +74,13 @@ def main(args):
         if torch.cuda.is_available():
             ksae.load_state_dict(
                 torch.load(
-                    os.path.join("sae_model",f"{args.prefix}{layer}_{args.step}","dino_weights.pt")
+                    os.path.join("sae_model",args.prefix,layer,args.step,"dino_weights.pt")
                 )
             )
         else:
             ksae.load_state_dict(
                 torch.load(
-                    os.path.join("sae_model",f"{args.prefix}{layer}_{args.step}","dino_weights.pt"),map_location=torch.device("cpu")
+                    os.path.join("sae_model",args.prefix,layer,args.step,"dino_weights.pt"),map_location=torch.device("cpu")
                 )
             )
     #https://github.com/zhangxulu1996/awesome-personalization
