@@ -211,7 +211,7 @@ def main(args):
     else:
         optimizer,sae_model,train_loader,test_loader,val_loader = accelerator.prepare(optimizer,sae_model,train_loader,test_loader,val_loader)
 
-    step=int(args.step)
+    step=str(args.step)
     save_subdir=os.path.join("sae_model")
     os.makedirs(save_subdir,exist_ok=True)
     save_subdir=os.path.join("sae_model",args.prefix)

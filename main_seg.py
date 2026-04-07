@@ -184,7 +184,7 @@ def main(args):
         
         count=len([f for f in os.listdir(os.path.join(args.save_dir,"dino")) if f.endswith("npy")])
         
-        print(f"found {count} different images")
+        print(f"found {count} different images total data len {len(data)}")
 
         for k,row in enumerate(data):
             if k<count:
