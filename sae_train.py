@@ -44,6 +44,7 @@ parser.add_argument("--pooling",type=str,default="avg")
 parser.add_argument("--threshold",type=float,default=0.5)
 parser.add_argument("--checkpoint",type=str,default="SimianLuo/LCM_Dreamshaper_v7",help=" dreamshaper ")
 parser.add_argument("--step",type=int,default=0)
+parser.add_argument("--prefix",type=str,default="seg_ip_flickr")
 
 class LatentDataset(torch.utils.data.Dataset):
     def __init__(self,hf_dataset,model_layer):
@@ -210,7 +211,13 @@ def main(args):
     else:
         optimizer,sae_model,train_loader,test_loader,val_loader = accelerator.prepare(optimizer,sae_model,train_loader,test_loader,val_loader)
 
-    save_subdir=os.path.join("sae_model",args.save_dir)
+    save_subdir=os.path.join("sae_model")
+    os.makedirs(save_subdir,exist_ok=True)
+    save_subdir=os.path.join("sae_model",args.prefix)
+    os.makedirs(save_subdir,exist_ok=True)
+    save_subdir=os.path.join("sae_model",args.prefix,args.model_layer)
+    os.makedirs(save_subdir,exist_ok=True)
+    save_subdir=os.path.join("sae_model",args.prefix,args.model_layer,args.step)
     os.makedirs(save_subdir,exist_ok=True)
     
 
