@@ -70,7 +70,7 @@ def main(args):
         layer: TopKSAE(dc,args.nb_concepts,device=device) for layer in args.layers
     }
     
-    step=int(args.step)
+    step=str(args.step)
     
     for layer,ksae in dino_sae_dict.items():
         if torch.cuda.is_available():
