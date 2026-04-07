@@ -12,6 +12,7 @@ def get_sae_dict(checkpoint:str,device,nb_concepts:int,layers:list[str],prefix:s
     sae_dict={
         layer: TopKSAE(shape_dict[layer][1],nb_concepts) for layer in layers
     }
+    step=int(step)
     
     for layer,ksae in sae_dict.items():
         if torch.cuda.is_available():

@@ -211,13 +211,14 @@ def main(args):
     else:
         optimizer,sae_model,train_loader,test_loader,val_loader = accelerator.prepare(optimizer,sae_model,train_loader,test_loader,val_loader)
 
+    step=int(args.step)
     save_subdir=os.path.join("sae_model")
     os.makedirs(save_subdir,exist_ok=True)
     save_subdir=os.path.join("sae_model",args.prefix)
     os.makedirs(save_subdir,exist_ok=True)
     save_subdir=os.path.join("sae_model",args.prefix,args.model_layer)
     os.makedirs(save_subdir,exist_ok=True)
-    save_subdir=os.path.join("sae_model",args.prefix,args.model_layer,args.step)
+    save_subdir=os.path.join("sae_model",args.prefix,args.model_layer,step)
     os.makedirs(save_subdir,exist_ok=True)
     
 
