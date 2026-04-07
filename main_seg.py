@@ -154,7 +154,7 @@ def main(args):
                 data=datasets.load_dataset(args.src_dataset,download_mode="force_redownload")
             data=data["train"]
         else:
-            data=[{"path":file} for file in os.listdir(args.src_dir) if file.endswith("png")][:args.limit]
+            data=[{"path":file} for file in os.listdir(args.src_dir) if (file.endswith("png") or file.endswith("jpg"))][:args.limit]
             #data=[{"image":Image.open(os.path.join(args.src_dir,file)) }for file in path_list]
 
         with open(os.path.join("layer_dir","target_lcm_layers.txt")) as txt:
