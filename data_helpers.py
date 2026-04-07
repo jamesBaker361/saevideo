@@ -5,11 +5,12 @@ import os
 import json
 
 class PersonaDataset(Dataset):
-    def __init__(self,subset:str,size:tuple[int]):
+    def __init__(self,subset:str,size:tuple[int],keyword:bool=True):
         super().__init__()
         self.image_processor= VaeImageProcessor()
         self.subset=subset
         self.size=size
+        self.keyword=keyword
         
         with open(os.path.join("pcs_dataset","info.json")) as f:
             mapping=json.load(f)
@@ -44,7 +45,10 @@ class PersonaDataset(Dataset):
             for k,v in mapping_face["id_with_gender"].items():
             
                 for prompt in prompt_list:
-                    self.text_list.append(prompt.replace("{0} {1}",v))
+                    if self.keyword:
+                        self.text_list.append(prompt.replace("{0} {1}",v))
+                    else:
+                        self.text_list.append(prompt.replace("{0} {1}"," "))
                     self.path_list.append(os.path.join("pcs_dataset","face",k,"face.jpg"))
                     self.keyword_list.append(k)
             

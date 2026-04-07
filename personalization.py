@@ -87,7 +87,7 @@ def main(args):
             )
     #https://github.com/zhangxulu1996/awesome-personalization
     
-    data=PersonaDataset(args.subset,(args.size,args.size))
+    data=PersonaDataset(args.subset,(args.size,args.size),keyword=False)
     
     pipe=HookPipe(
         DiffusionPipeline.from_pretrained(args.checkpoint).to(device),args.layers,sae_dict,shape_dict,0.5
@@ -106,6 +106,7 @@ def main(args):
             
             image=row["image"]
             prompt=row["text"]
+            keyword=row["keyword"]
             
             dino=get_last_hidden_states(image,dino_processor,dino_model)[:, 0, :].to(device)
             sae_src_dict={
