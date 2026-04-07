@@ -33,7 +33,10 @@ class PersonaDataset(Dataset):
                 else:
                     prompt_list=mapping_sub["prompt_object"]
                 for prompt in prompt_list:
-                    self.text_list.append(prompt.replace("{0} {1}",v))
+                    if self.keyword:
+                        self.text_list.append(prompt.replace("{0} {1}",v))
+                    else:
+                        self.text_list.append(prompt.replace("{0} {1}"," "))
                     self.path_list.append(os.path.join("pcs_dataset","subjects",k,"00.jpg"))
                     self.keyword_list.append(k)
             
