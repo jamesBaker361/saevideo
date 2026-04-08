@@ -21,6 +21,7 @@ from loading import get_sae_dict
 from experiment_helpers.loop_decorator import optimization_loop
 from experiment_helpers.data_helpers import split_data
 from experiment_helpers.init_helpers import default_parser,repo_api_init
+from experiment_helpers.argprint import print_args
 from unet_autopsy import get_shape_dict
 from overcomplete import TopKSAE
 from dino_extract import dino_model,dino_processor,get_last_hidden_states
@@ -138,6 +139,7 @@ if __name__=='__main__':
     print_details()
     start=time.time()
     args=parser.parse_args()
+    print_args(parser)
     print(args)
     main(args)
     end=time.time()

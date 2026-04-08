@@ -6,6 +6,7 @@ import time
 import os
 from experiment_helpers.data_helpers import split_data
 from experiment_helpers.saving_helpers import save_and_load_functions
+from experiment_helpers.argprint import print_args
 from datasets import load_dataset
 from overcomplete.sae import TopKSAE,QSAE, JumpSAE, BatchTopKSAE,losses
 from overcomplete.sae.trackers import DeadCodeTracker
@@ -340,6 +341,7 @@ if __name__=='__main__':
     print_details()
     start=time.time()
     args=parse_args(parser)
+    print_args(parser)
     print(args)
     main(args)
     end=time.time()

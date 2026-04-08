@@ -9,6 +9,7 @@ import os
 from accelerate import Accelerator
 from copy import deepcopy
 from diffusers.utils.loading_utils import load_image
+from experiment_helpers.argprint import print_args
 import json
 from PIL import Image
 from loading import get_sae_dict
@@ -278,6 +279,7 @@ if __name__=='__main__':
     print_details()
     start=time.time()
     args=parser.parse_args()
+    print_args(parser)
     print(args)
     main(args)
     end=time.time()
