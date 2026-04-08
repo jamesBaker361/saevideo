@@ -34,7 +34,7 @@ parser.add_argument("--nb_concepts",type=int,default=10000,help="n concepts for 
 parser.add_argument("--sae_model",type=str,default=KSAE)
 parser.add_argument("--model_layer",type=str,default="up_blocks.1.attentions.0")
 parser.add_argument("--local_global_split",action="store_true",help="if yes, split the concepts into global and local components; global need to be the same across time and/or location")
-parser.add_argument("--src_dir_list",nargs="*")
+parser.add_argument("--src_dir_list",nargs="*",default=[" seg_ip_flickr "])
 parser.add_argument("--dino",action="store_true",help="whether to use dino embeddings too")
 parser.add_argument("--mask",action="store_true",help="whether to mask out irrelevant tensors")
 parser.add_argument("--flatten",action="store_true",help="whether to do the whole image at once or do channel by channel")
@@ -171,6 +171,34 @@ class LatentLocalDataset(torch.utils.data.Dataset):
 
 def main(args):
     api,accelerator,device=repo_api_init(args)
+    mixed_precision : str = args.mixed_precision
+    project_name : str = args.project_name
+    gradient_accumulation_steps : int = args.gradient_accumulation_steps
+    repo_id : str = args.repo_id
+    lr : float = args.lr
+    epochs : int = args.epochs
+    limit : int = args.limit
+    save_dir : str = args.save_dir
+    batch_size : int = args.batch_size
+    val_interval : int = args.val_interval
+    src_dataset : str = args.src_dataset
+    load_hf  = args.load_hf
+    nb_concepts : int = args.nb_concepts
+    sae_model : str = args.sae_model
+    model_layer : str = args.model_layer
+    local_global_split  = args.local_global_split
+    src_dir_list  = args.src_dir_list
+    dino  = args.dino
+    mask  = args.mask
+    flatten  = args.flatten
+    timestep : int = args.timestep
+    hf_data  = args.hf_data
+    dino_coefficient : float = args.dino_coefficient
+    pooling : str = args.pooling
+    threshold : float = args.threshold
+    checkpoint : str = args.checkpoint
+    step : int = args.step
+    prefix : str = args.prefix
     
     sae_model_class={
         KSAE:TopKSAE,
