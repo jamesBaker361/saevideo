@@ -13,6 +13,7 @@ from overcomplete.sae.trackers import DeadCodeTracker
 import numpy as np
 import torch.nn.functional as F
 from unet_autopsy import get_shape_dict
+from collections import defaultdict
 import json
 from typing import Optional
 from torchvision.transforms import Resize
@@ -34,7 +35,7 @@ parser.add_argument("--nb_concepts",type=int,default=10000,help="n concepts for 
 parser.add_argument("--sae_model",type=str,default=KSAE)
 parser.add_argument("--model_layer",type=str,default="up_blocks.1.attentions.0")
 parser.add_argument("--local_global_split",action="store_true",help="if yes, split the concepts into global and local components; global need to be the same across time and/or location")
-parser.add_argument("--src_dir_list",nargs="*",default=[" seg_ip_flickr "])
+parser.add_argument("--src_dir_list",nargs="*",default=["seg_ip_flickr"])
 parser.add_argument("--dino",action="store_true",help="whether to use dino embeddings too")
 parser.add_argument("--mask",action="store_true",help="whether to mask out irrelevant tensors")
 parser.add_argument("--flatten",action="store_true",help="whether to do the whole image at once or do channel by channel")
@@ -210,6 +211,8 @@ def main(args):
     criterion={
         KSAE:losses.mse_l1 #TODO: find losses for other models
     }[args.sae_model]
+    
+    istopk=(sae_model==KSAE)
 
     dataset= LatentLocalDataset(args.src_dir_list,args.checkpoint,
                                 args.step,args.model_layer,args.dino,args.mask,args.limit,args.flatten,args.pooling,
@@ -324,18 +327,33 @@ def main(args):
     
     start_epoch=load(False)
     
-    old_weights=sae_model.get_dictionary().cpu().detach().clone()
+    old_weights=None
 
     @optimization_loop(
         accelerator,train_loader,args.epochs,args.val_interval,args.limit,
         val_loader,test_loader,save,start_epoch
     )
     def batch_function(batch,training,helpful_dict):
+        nonlocal old_weights
         
-        if helpful_dict["b"]==0:
-            new_weights=sae_model.get_dictionary().cpu().detach().clone()
-            old_idx, new_idx, matched_sim=track_features(old_weights,new_weights)
-            print("features over itme",helpful_dict["epochs"], matched_sim.mean())
+        if helpful_dict["b"] == 0:
+            new_weights = sae_model.get_dictionary().detach()
+
+            if old_weights is not None:
+                old_idx, new_idx, matched_sim = track_features(old_weights, new_weights)
+
+                print(
+                    "epoch:",
+                    helpful_dict["epochs"],
+                    "stability:",
+                    matched_sim.mean().item()
+                )
+                accelerator.log({"sim":matched_sim.mean().item()})
+
+            old_weights = new_weights.clone()
+            
+            if istopk:
+                pass #reduce k
             
         
         activations=batch["act"].to(device)
