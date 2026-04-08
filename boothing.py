@@ -142,6 +142,25 @@ parser.add_argument("--step",type=int,default=24)
 
 def main(args):
     api,accelerator,device=repo_api_init(args)
+    
+    mixed_precision : str = args.mixed_precision
+    project_name : str = args.project_name
+    gradient_accumulation_steps : int = args.gradient_accumulation_steps
+    repo_id : str = args.repo_id
+    lr : float = args.lr
+    epochs : int = args.epochs
+    limit : int = args.limit
+    save_dir : str = args.save_dir
+    batch_size : int = args.batch_size
+    val_interval : int = args.val_interval
+    load_hf  = args.load_hf
+    weight : float = args.weight
+    key : str = args.key
+    checkpoint : str = args.checkpoint
+    num_inference_steps : int = args.num_inference_steps
+    nb_concepts : int = args.nb_concepts
+    prefix : str = args.prefix
+    step : int = args.step
     os.makedirs(args.save_dir,exist_ok=True)
 
 
