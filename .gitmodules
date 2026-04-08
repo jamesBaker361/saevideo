@@ -4,3 +4,6 @@
 [submodule "Wan2.2"]
 	path = Wan2.2
 	url = https://github.com/Wan-Video/Wan2.2.git
+[submodule "sdxl-unbox"]
+	path = sdxl-unbox
+	url = https://github.com/surkovv/sdxl-unbox.git
