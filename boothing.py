@@ -176,12 +176,21 @@ def main(args):
 
     dtype=torch.float16
 
-    pipe = HookedStableDiffusionXLWithUNetPipeline.from_pretrained(
-        'stabilityai/sdxl-turbo',
-        torch_dtype=dtype,
-        device_map="balanced",
-        variant=("fp16" if dtype==torch.float16 else None)
-    )
+    if torch.cuda.is_available():
+
+        pipe = HookedStableDiffusionXLWithUNetPipeline.from_pretrained(
+            'stabilityai/sdxl-turbo',
+            torch_dtype=dtype,
+            device_map="balanced",
+            variant=("fp16" if dtype==torch.float16 else None)
+        )
+    else:
+         pipe = HookedStableDiffusionXLWithUNetPipeline.from_pretrained(
+            'stabilityai/sdxl-turbo',
+            torch_dtype=dtype,
+            device_map=torch.device('cpu'),
+            variant=("fp16" if dtype==torch.float16 else None)
+        )
 
     path_to_checkpoints = './sdxl_unbox/checkpoints/'
 
