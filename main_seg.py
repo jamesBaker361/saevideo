@@ -43,9 +43,6 @@ parser.add_argument("--src_dataset",type=str, default="jlbaker361/synthetic-sana
 parser.add_argument("--use_test_split",action="store_true", help="only true for league dataset")
 parser.add_argument("--initial_steps",type=int,default=4,help="how many steps for the initial inference")
 parser.add_argument("--initial_mask_step_list",nargs="*",help="steps to generate mask from",type=int,default=[1,2])
-parser.add_argument("--final_steps",type=int,default=8, help="how many steps for final inference (with mask)")
-parser.add_argument("--final_mask_steps_list",nargs="*",help="steps to apply mask from",type=int)
-parser.add_argument("--final_adapter_steps_list",nargs="*",help="steps to apply adapter for (regardless of mask)",type=int)
 parser.add_argument("--threshold",type=float,default=0.5,help="threshold for mask")
 parser.add_argument("--limit",type=int,default=-1,help="limit of samples")
 parser.add_argument("--layer_index",type=int,default=15)
@@ -123,12 +120,6 @@ def main(args):
             initial_quarter=args.initial_steps //4
             args.initial_mask_step_list=[f for f in range(args.initial_steps)][initial_quarter:-initial_quarter]
             accelerator.print("defaulting to initial_mask_step_list",args.initial_mask_step_list )
-        if args.final_mask_steps_list is None:
-            final_quarter=args.final_steps //4
-            args.final_mask_steps_list=[f for f in range(args.final_steps)][final_quarter:-final_quarter]
-            accelerator.print("defaulting final maske step lst",args.final_mask_steps_list )
-        if args.final_adapter_steps_list is None:
-            args.final_adapter_steps_list=args.final_mask_steps_list
 
 
         pipe = CompatibleLatentConsistencyModelPipeline.from_pretrained(
@@ -168,7 +159,9 @@ def main(args):
         "mask_int":[],
         "dino":[]
         }
+        print("Layers we're collecting from:")
         for diff in diffusion_layers:
+            print(diff)
             for step in range(args.initial_steps):
                 output_dict[f"{diff}_{step}"]=[]
                 
