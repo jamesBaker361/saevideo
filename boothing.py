@@ -269,7 +269,7 @@ def main(args):
     for epoch in range(start_epoch, args.epochs+1):
         loss_list=[]
         for row in data:
-            img=row["image"].to(device)
+            img=row["image"].to(device,dtype)
             encoder_hidden_states=row["input_ids"]
             latents=vae.encode(img).latent_dist.sample()
             noise = torch.randn_like(latents)
