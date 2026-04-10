@@ -14,6 +14,10 @@ from experiment_helpers.argprint import print_args
 import json
 from PIL import Image
 from loading import get_sae_dict
+from sdxl_unbox.SAE import SparseAutoencoder
+from sdxl_unbox.SDLens import HookedStableDiffusionXLPipeline
+from sdxl_pipe import HookedStableDiffusionXLWithUNetPipeline
+from diffusers import UNet2DConditionModel
 
 
 import os
@@ -32,6 +36,7 @@ from diffusers.image_processor import VaeImageProcessor
 from torch.utils.data import DataLoader,Dataset
 from unet_autopsy import get_shape_dict
 
+unique_token="<sks>"
 
 def tokenize_prompt(tokenizer, prompt, tokenizer_max_length=None):
     if tokenizer_max_length is not None:
@@ -79,14 +84,14 @@ def compute_text_embeddings(prompt,tokenizer,text_encoder):
     return prompt_embeds
 
 class DreamboothDataset(Dataset):
-    def __init__(self,key:str,text_encoder,tokenizer):
+    def __init__(self,key:str,text_encoder,tokenizer,size:int):
         super().__init__()
         self.image_processor=VaeImageProcessor()
         self.tokenizer=tokenizer
         self.text_encoder=text_encoder
 
         
-        unique_token="<sks>"
+        
         samples_per_epoch=128 #this has to be high in case we want large batch sizes
         
         with open("pcs_dataset/info.json","r") as f:
@@ -111,7 +116,7 @@ class DreamboothDataset(Dataset):
                     img=Image.open(os.path.join("pcs_dataset",category,key,"face.jpg"))
                 elif category=="subjects":
                     img=Image.open(os.path.join("pcs_dataset",category,key,f"0{n}.jpg"))
-                self.image_list.append(img)
+                self.image_list.append(img.resize((size,size)))
             except:
                 break
             
@@ -120,6 +125,7 @@ class DreamboothDataset(Dataset):
     
     def __getitem__(self, index):
         return {
+            "prompt":self.prompt_list[index],
             "image":self.image_processor.preprocess(self.image_list[index %len(self.image_list)]),
             "input_ids":compute_text_embeddings(self.prompt_list[index],self.tokenizer,self.text_encoder)
         }
@@ -138,6 +144,7 @@ parser.add_argument("--num_inference_steps",type=int,default=2)
 parser.add_argument("--nb_concepts",type=int,default=10000,help="n concepts for SAE")
 parser.add_argument("--prefix",type=str,default="features_stablediffusionapi_realistic-vision-v51_32_")
 parser.add_argument("--step",type=int,default=24)
+parser.add_argument("--size",type=int,default=64)
 
 
 
@@ -162,30 +169,51 @@ def main(args):
     nb_concepts : int = args.nb_concepts
     prefix : str = args.prefix
     step : int = args.step
+    size:int=args.size
     os.makedirs(args.save_dir,exist_ok=True)
 
 
-    pipe=DiffusionPipeline.from_pretrained(args.checkpoint,torch_dtype=torch.float32).to(device)
 
-    layers=[
-        "down_blocks.1.attentions.0","down_blocks.1.attentions.1",
-                        "down_blocks.2.attentions.0","down_blocks.2.attentions.1",
-                        "up_blocks.1.attentions.0","up_blocks.1.attentions.1",
-                        "up_blocks.2.attentions.1",#"up_blocks.2.upsamplers",
-                        "up_blocks.3.attentions.1",#"up_blocks.3.upsamplers",
-                        "mid_block.attentions.0"
+    dtype=torch.float16
+
+    pipe = HookedStableDiffusionXLWithUNetPipeline.from_pretrained(
+        'stabilityai/sdxl-turbo',
+        torch_dtype=dtype,
+        device_map="balanced",
+        variant=("fp16" if dtype==torch.float16 else None)
+    )
+
+    path_to_checkpoints = './sdxl_unbox/checkpoints/'
+
+    block_list=[
+        "down_blocks.2.attentions.1",
+        "mid_block.attentions.0"
     ]
-    nb_concepts=args.nb_concepts
+    
+    saes_dict:dict[str,SparseAutoencoder] = {}
+    means_dict = {}
+
+    shape_dict=get_shape_dict('stabilityai/sdxl-turbo',device,size)
+    for block in block_list:
+        sae = SparseAutoencoder.load_from_disk(
+            os.path.join(path_to_checkpoints, f"unet.{block}_k10_hidden5120_auxk256_bs4096_lr0.0001", "final"),
+        )
+        means = torch.load(
+            os.path.join(path_to_checkpoints, f"unet.{block}_k10_hidden5120_auxk256_bs4096_lr0.0001", "final", "mean.pt"),
+            weights_only=True
+        )
+        saes_dict[block] = sae.to(device, dtype=dtype)
+        saes_dict[block].requires_grad_(False)
+        means_dict[block] = means.to(device, dtype=dtype)
+        print(block,shape_dict[block])
         
     def get_unet_device_dtype(unet):
         param = next(unet.parameters())
         return param.device, param.dtype
 
     device, dtype = get_unet_device_dtype(pipe.unet)
-    shape_dict=get_shape_dict(args.checkpoint,device,64)
-    sae_dict=get_sae_dict(args.checkpoint,device,args.nb_concepts,layers,args.prefix,args.step)
 
-
+    
 
     vae=pipe.vae
     text_encoder=pipe.text_encoder
@@ -195,26 +223,37 @@ def main(args):
     
     for model in [vae,text_encoder,unet]:
         model.requires_grad_(False)
+        
+    trainable_embedding_dict={
+        block: torch.nn.Parameter(torch.randn(1, saes_dict[block].encoder.weight.size()[0], device=device))
+    }
+    unet: UNet2DConditionModel =pipe.unet
     
-    hooked_unet=HookUNet(unet,layers,sae_dict,args.weight)
-
-    batch_size=1
-    #maybe do one of these for each entity (which )
-    sae_src_dict={
-            lay: torch.nn.Parameter(torch.randn(1, nb_concepts, device=device))
-            for lay in layers
-        }#these are trainable!
+    unet_modules={}
+    for name,module in unet.named_modules():
+        if name in block_list:
+            unet_modules[name]=module
+    
+    for block in block_list:
+        def feature_injection(module, input, output):
+            trainable_embedding=trainable_embedding_dict[block]
+            sae=saes_dict[block]
+            recons = trainable_embedding @ sae.decoder.weight.T + sae.pre_bias
+            recons=recons.reshape(shape_dict[block])
+            return (weight * recons) + (1-weight) * output
+        module=unet_modules[block]
+        module.register_forward_hook(feature_injection)
+        
+                    
     
     
-    params=[v for v in sae_src_dict.values()]
+    params=[v for v in trainable_embedding_dict.values()]
     optimizer_class = torch.optim.AdamW
     optimizer=optimizer_class(params,args.lr)
     
     
-    unique_token="<sks>"
-    class_token="dog"
-    
     data=DreamboothDataset(args.key,text_encoder,tokenizer)
+    
     
     start_epoch=1
     for epoch in range(start_epoch, args.epochs+1):
@@ -234,16 +273,45 @@ def main(args):
             # (this is the forward diffusion process)
             noisy_model_input = scheduler.add_noise(latents, noise, timesteps)
             
+            (prompt_embeds,
+            negative_prompt_embeds,
+            pooled_prompt_embeds,
+            negative_pooled_prompt_embeds,
+            )=pipe.encode_prompt(
+            row["prompt"],row["prompt"],device,1,False," "," ")
+            timestep_cond=None
+            add_text_embeds = pooled_prompt_embeds
 
+            if pipe.text_encoder_2 is None:
+                text_encoder_projection_dim = int(pooled_prompt_embeds.shape[-1])
+            else:
+                text_encoder_projection_dim = pipe.text_encoder_2.config.projection_dim
+
+            original_size = (size, size)
+            target_size =(size, size)
+            crops_coords_top_left=(0,0)
+            add_time_ids = pipe._get_add_time_ids(
+                original_size,
+                crops_coords_top_left,
+                target_size,
+                dtype=prompt_embeds.dtype,
+                text_encoder_projection_dim=text_encoder_projection_dim,)
+
+            added_cond_kwargs = {"text_embeds": add_text_embeds, "time_ids": add_time_ids}
+            
             
             
             with accelerator.accumulate(params):
                 with accelerator.autocast():
                     optimizer.zero_grad()
-                    model_pred = hooked_unet.forward( #TODO: add cross attn matching attn2.to_k
-                        sae_src_dict,
-                        noisy_model_input, timesteps, encoder_hidden_states, class_labels=None, return_dict=False
-                    )[0]
+                    model_pred = unet.forward(
+                        noisy_model_input,timesteps,
+                                            encoder_hidden_states=prompt_embeds,
+                                            timestep_cond=timestep_cond,
+                                            cross_attention_kwargs={},
+                                            added_cond_kwargs=added_cond_kwargs,
+                                            return_dict=False,
+                    )
                     
                     if scheduler.config.prediction_type == "epsilon":
                         target = noise
@@ -260,7 +328,7 @@ def main(args):
         })
         print("loss",np.mean(loss_list))
     os.makedirs(args.save_dir,exist_ok=True)
-    for lay,t in sae_src_dict.items():
+    for lay,t in trainable_embedding_dict.items():
         new_dir=os.path.join(args.save_dir,lay)
         os.makedirs(new_dir,exist_ok=True)
         new_path=os.path.join(new_dir,"weights.pt")
@@ -285,11 +353,10 @@ def main(args):
         
     prompt_list=[p.format(unique_token,class_token) for p in prompt_list]
     
-    hooked_pipeline=HookPipe(DiffusionPipeline.from_pretrained(args.checkpoint,torch_dtype=torch.float16).to(device),
-                             layers,sae_dict,shape_dict,args.weight)
+    
     
     for p,prompt in enumerate(prompt_list):
-        gen_img:Image.Image=hooked_pipeline.forward(sae_src_dict,prompt,height=256,width=256,num_inference_steps=args.num_inference_steps).images[0]
+        gen_img:Image.Image=pipe(prompt,prompt,size,size,num_inference_steps)
         gen_img.save(os.path.join(args.save_dir,f"gen_{p}.jpg"))
             
 
