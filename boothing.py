@@ -6,7 +6,7 @@ from hook_wrapper import HookPipe,HookUNet
 from overcomplete import TopKSAE
 import torch
 import numpy as np
-import os
+
 from accelerate import Accelerator
 from copy import deepcopy
 from diffusers.utils.loading_utils import load_image
@@ -234,7 +234,7 @@ def main(args):
         model.requires_grad_(False)
         
     trainable_embedding_dict={
-        block: torch.nn.Parameter(torch.randn(1, saes_dict[block].encoder.weight.size()[0], device=device))
+        block: torch.nn.Parameter(torch.randn(1, saes_dict[block].encoder.weight.size()[0], device=device)) for block in block_list
     }
     unet: UNet2DConditionModel =pipe.unet
     
@@ -259,9 +259,10 @@ def main(args):
     params=[v for v in trainable_embedding_dict.values()]
     optimizer_class = torch.optim.AdamW
     optimizer=optimizer_class(params,args.lr)
+    optimizer.zero_grad()
     
     
-    data=DreamboothDataset(args.key,text_encoder,tokenizer)
+    data=DreamboothDataset(args.key,text_encoder,tokenizer,size)
     
     
     start_epoch=1
@@ -312,7 +313,7 @@ def main(args):
             
             with accelerator.accumulate(params):
                 with accelerator.autocast():
-                    optimizer.zero_grad()
+                    
                     model_pred = unet.forward(
                         noisy_model_input,timesteps,
                                             encoder_hidden_states=prompt_embeds,
@@ -320,7 +321,7 @@ def main(args):
                                             cross_attention_kwargs={},
                                             added_cond_kwargs=added_cond_kwargs,
                                             return_dict=False,
-                    )
+                    )[0]
                     
                     if scheduler.config.prediction_type == "epsilon":
                         target = noise
@@ -330,6 +331,7 @@ def main(args):
                     loss = F.mse_loss(model_pred.float(), target.float(), reduction="mean")
                     accelerator.backward(loss)
                     optimizer.step()
+                    optimizer.zero_grad()
             loss_list.append(loss.cpu().detach().numpy())
             
         accelerator.log({
