@@ -249,7 +249,12 @@ def main(args):
             sae=saes_dict[block]
             recons = trainable_embedding @ sae.decoder.weight.T + sae.pre_bias
             recons=recons.reshape(shape_dict[block])
-            return (weight * recons) + (1-weight) * output
+            if type(output)==tuple:
+                print("output ",output[0].size(), recons.size())
+                return ((weight * recons) + (1-weight) * output[0], output[1])
+            else:
+                print("output ",output.size(), recons.size())
+                return (weight * recons) + (1-weight) * output
         module=unet_modules[block]
         module.register_forward_hook(feature_injection)
         
