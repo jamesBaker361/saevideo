@@ -1,4 +1,5 @@
 #https://github.com/surkovv/sdxl-unbox
+#https://huggingface.co/surokpro2/sdxl-saes/tree/main
 
 from diffusers import DiffusionPipeline
 from hook_wrapper import HookPipe,HookUNet
