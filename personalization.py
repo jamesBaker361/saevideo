@@ -44,6 +44,7 @@ parser.add_argument("--step",type=int,default=2)
 parser.add_argument("--subset",type=str,default="subject",help="subject or object or face")
 parser.add_argument("--size",type=int,default=256)
 parser.add_argument("--num_inference_steps",type=int,default=8)
+parser.add_argument("--weight",type=float,default=0.95)
 #TODO: add monkey patching
             
 #use persona dataset
@@ -53,6 +54,29 @@ parser.add_argument("--num_inference_steps",type=int,default=8)
         
 
 def main(args):
+    mixed_precision : str = args.mixed_precision
+    project_name : str = args.project_name
+    gradient_accumulation_steps : int = args.gradient_accumulation_steps
+    repo_id : str = args.repo_id
+    lr : float = args.lr
+    epochs : int = args.epochs
+    limit : int = args.limit
+    save_dir : str = args.save_dir
+    batch_size : int = args.batch_size
+    val_interval : int = args.val_interval
+    load_hf  = args.load_hf
+    layers  = args.layers
+    hidden_dim  = args.hidden_dim
+    checkpoint : str = args.checkpoint
+    nb_concepts : int = args.nb_concepts
+    parent_dir : str = args.parent_dir
+    prefix : str = args.prefix
+    monkey  = args.monkey
+    step : int = args.step
+    subset : str = args.subset
+    size : int = args.size
+    num_inference_steps : int = args.num_inference_steps
+    weight:float=args.weight
     api,accelerator,device=repo_api_init(args)
     shape_dict=get_shape_dict(args.checkpoint,device,args.size)
     
@@ -91,7 +115,7 @@ def main(args):
     data=PersonaDataset(args.subset,(args.size,args.size),keyword=False)
     
     pipe=HookPipe(
-        DiffusionPipeline.from_pretrained(args.checkpoint).to(device),args.layers,sae_dict,shape_dict,0.5
+        DiffusionPipeline.from_pretrained(args.checkpoint).to(device),args.layers,sae_dict,shape_dict,weight
     )
     
     clip_text_alignment=[]
