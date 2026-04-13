@@ -20,8 +20,6 @@
 
 #SBATCH --error=slurm_chip/generic/%j.err   # STDERR output file (optional)
 
-#SBATCH --nodelist=g20-[01-13]
-
 #SBATCH --constraint='L40S|H100'
 
 
