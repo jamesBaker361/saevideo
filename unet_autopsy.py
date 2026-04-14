@@ -32,7 +32,7 @@ def main():
 
     output_data={}
 
-    for checkpoint in ["SimianLuo/LCM_Dreamshaper_v7","Lykon/dreamshaper-7","stabilityai/stable-diffusion-xl-base-1.0","stablediffusionapi/realistic-vision-v51"]:
+    for checkpoint in ["SimianLuo/LCM_Dreamshaper_v7","Lykon/dreamshaper-7","stabilityai/stable-diffusion-xl-base-1.0","stablediffusionapi/realistic-vision-v51","stabilityai/sdxl-turbo"]:
         print("\n\n\n\n")
         print(checkpoint)
         pipe=DiffusionPipeline.from_pretrained(checkpoint)
