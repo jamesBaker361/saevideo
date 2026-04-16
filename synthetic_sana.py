@@ -133,7 +133,7 @@ with open(os.path.join(folder,config),"a",buffering=1) as file:
                 prompts=[b[2] for b in batch ]
                 subjects=[b[0] for b in batch]
                 styles=[b[1] for b in batch]
-                images = pipe(list(prompts), num_inference_steps=num_inference_steps, generator=generator,height=512,width=512).images
+                images = pipe(list(prompts), num_inference_steps=num_inference_steps, generator=generator,height=256,width=256).images
 
                 local_images.extend(images)
                 local_subjects.extend(subjects)
