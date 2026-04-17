@@ -51,7 +51,7 @@ if __name__=='__main__':
     print_details()
     start=time.time()
     args=parser.parse_args()
-    print_args(args)
+    print_args(parser)
     print(args)
     main(args)
     end=time.time()
