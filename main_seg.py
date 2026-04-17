@@ -209,7 +209,7 @@ def main(args):
                     
             for step in range(args.initial_steps):
                 path=os.path.join(args.save_dir,str(step),f"{k}.npz")
-                results={k:v[step] for k,v in act.items()}
+                results={layer_name:v[step] for layer_name,v in act.items()}
                 np.savez(path,**results)
                     
             initial_image=initial_image.images[0]
@@ -238,21 +238,7 @@ def main(args):
             for (key,array) in zip(["mask","dino"],[mask,dino]):
                 path=os.path.join(args.save_dir,key,f"{k}")
                 np.save(path,array.cpu().detach().numpy())
-            
-            
-        Dataset.from_dict(output_dict).push_to_hub(args.dest_dataset)
 
-
-
-
-
-
-        
-
-
-
-
-    return
 
 if __name__=='__main__':
     print_details()

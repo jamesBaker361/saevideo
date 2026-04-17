@@ -75,7 +75,7 @@ if args.dataset=='txt':
     all_prompts = []
     for sub in subject_list:
         for sty in style_list:
-            all_prompts.append((sub, sty, f"{sub}, {sty}"))
+            all_prompts.append(f"{sub}, {sty}")
             if len(all_prompts) >= limit:
                 break
         if len(all_prompts) >= limit:
@@ -118,102 +118,44 @@ with open(os.path.join(folder,config),"a",buffering=1) as file:
     if not is_cpu:
 
 
-        local_images = []
-        local_subjects = []
-        local_styles = []
         local_prompts = []
 
         start = time.time()
         with torch.no_grad():
             for i in range(0, len(all_prompts), batch_size):
-                if i*batch_size<count:
+                if i<count:
                     continue
                 
-                batch=all_prompts[i:i+batch_size]
-                prompts=[b[2] for b in batch ]
-                subjects=[b[0] for b in batch]
-                styles=[b[1] for b in batch]
+                prompts=all_prompts[i:i+batch_size]
                 images = pipe(list(prompts), num_inference_steps=num_inference_steps, generator=generator,height=256,width=256).images
 
-                #local_images.extend(images)
-                local_subjects.extend(subjects)
-                local_styles.extend(styles)
                 local_prompts.extend(prompts)
                 if i%100==0:
                     end = time.time()
-                    accelerator.print(f"Process {accelerator.process_index} generated {len(local_images)+count} images in {end-start:.2f}s")
-                    
-                for x,(img,sub,sty,prompt) in enumerate(zip(images,subjects,styles,prompts)):
+                    accelerator.print(f"Process {accelerator.process_index} generated {len(local_prompts)+count} images in {end-start:.2f}s")
+
+                for img,prompt in zip(images,prompts):
                     path=os.path.join(folder,f"{count}.jpg")
                     img.save(path)
-                    file.write(f"{path},{sub},{sty},{prompt}\n")
+                    file.write(f"{path},{prompt}\n")
                     count+=1
                         
                 
 
         end = time.time()
-        accelerator.print(f"Process {accelerator.process_index} generated {len(local_images)} images in {end-start:.2f}s")
-
-        # Gather across GPUs
-        #all_images = accelerator.gather_for_metrics(local_images)
-        all_subjects = accelerator.gather_for_metrics(local_subjects)
-        all_styles = accelerator.gather_for_metrics(local_styles)
-        all_prompts = accelerator.gather_for_metrics(local_prompts)
+        accelerator.print(f"Process {accelerator.process_index} generated {len(local_prompts)} images in {end-start:.2f}s")
 
     else:
         # CPU mode: simple loop
-        all_images = []
-        all_subjects = []
-        all_styles = []
-        all_prompts_cpu = []
-
         start = time.time()
         with torch.no_grad():
-            for sub, sty, prompt in all_prompts:
+            for i, prompt in enumerate(all_prompts):
+                if i < count:
+                    continue
                 image = pipe(prompt, num_inference_steps=num_inference_steps, generator=generator).images[0]
-                #all_images.append(image)
-                all_subjects.append(sub)
-                all_styles.append(sty)
-                all_prompts_cpu.append(prompt)
+                path=os.path.join(folder,f"{count}.jpg")
+                image.save(path)
+                file.write(f"{path},{prompt}\n")
+                count+=1
         end = time.time()
-        print(f"CPU generated {len(all_images)} images in {end-start:.2f}s")
-
-        all_prompts = all_prompts_cpu
-'''
-folder="synthetic-sana"
-os.makedirs(folder,exist_ok=True)
-config="config.csv"
-with open(os.path.join(folder,config),"w") as file:
-    for x,(img,sub,sty,prompt) in enumerate(zip(all_images,all_subjects,all_styles,all_prompts)):
-        path=os.path.join(folder,f"{x}.jpg")
-        img.save(path)
-        file.write(f"{path},{sub},{sty},{prompt}")'''
-# ---------------------------
-# PUSH TO HUB
-# ---------------------------
-if accelerator.is_main_process:
-    print(f"Total images collected: {len(all_images)}")
-
-    features = Features({
-        "image": Image(),
-        "subject": Value("string"),
-        "style": Value("string"),
-        "prompt": Value("string"),
-    })
-
-    dataset = Dataset.from_dict(
-        {
-            "image": all_images,
-            "subject": all_subjects,
-            "style": all_styles,
-            "prompt": all_prompts,
-        },
-    )
-
-    timestamp = time.strftime("%Y-%m-%d_%H-%M-%S")
-
-    dataset.push_to_hub(
-        repo_id,
-    )
-
-    print("Upload complete.")
+        print(f"CPU generated {count} images in {end-start:.2f}s")
