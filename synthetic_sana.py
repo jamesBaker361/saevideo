@@ -135,7 +135,7 @@ with open(os.path.join(folder,config),"a",buffering=1) as file:
                 styles=[b[1] for b in batch]
                 images = pipe(list(prompts), num_inference_steps=num_inference_steps, generator=generator,height=256,width=256).images
 
-                local_images.extend(images)
+                #local_images.extend(images)
                 local_subjects.extend(subjects)
                 local_styles.extend(styles)
                 local_prompts.extend(prompts)
@@ -155,7 +155,7 @@ with open(os.path.join(folder,config),"a",buffering=1) as file:
         accelerator.print(f"Process {accelerator.process_index} generated {len(local_images)} images in {end-start:.2f}s")
 
         # Gather across GPUs
-        all_images = accelerator.gather_for_metrics(local_images)
+        #all_images = accelerator.gather_for_metrics(local_images)
         all_subjects = accelerator.gather_for_metrics(local_subjects)
         all_styles = accelerator.gather_for_metrics(local_styles)
         all_prompts = accelerator.gather_for_metrics(local_prompts)
@@ -171,7 +171,7 @@ with open(os.path.join(folder,config),"a",buffering=1) as file:
         with torch.no_grad():
             for sub, sty, prompt in all_prompts:
                 image = pipe(prompt, num_inference_steps=num_inference_steps, generator=generator).images[0]
-                all_images.append(image)
+                #all_images.append(image)
                 all_subjects.append(sub)
                 all_styles.append(sty)
                 all_prompts_cpu.append(prompt)

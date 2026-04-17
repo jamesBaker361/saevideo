@@ -235,10 +235,6 @@ def main(args):
             
             mask_int_pil=to_pil_image(mask)
             
-            output_dict["image"].append(initial_image)
-            output_dict["mask"].append(mask_pil) 
-            output_dict["mask_int"].append(mask_int_pil)
-            
             for (key,array) in zip(["mask","dino"],[mask,dino]):
                 path=os.path.join(args.save_dir,key,f"{k}")
                 np.save(path,array.cpu().detach().numpy())
