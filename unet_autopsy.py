@@ -13,7 +13,10 @@ def get_module_by_name(model, target_name):
 
 def get_shape_dict(checkpoint:str,device,size:int=64)->dict[str,list[int]]:
     output_data={}
-    pipe =DiffusionPipeline.from_pretrained(checkpoint).to(device,dtype=torch.float16)
+    try:
+        pipe =DiffusionPipeline.from_pretrained(checkpoint).to(device,dtype=torch.float16)
+    except torch.OutOfMemoryError:
+        pipe=DiffusionPipeline.from_pretrained(checkpoint)
     unet=pipe.unet
     names=[name for name,module in unet.named_modules()]
 
