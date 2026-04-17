@@ -1,21 +1,14 @@
 #https://github.com/surkovv/sdxl-unbox
 #https://huggingface.co/surokpro2/sdxl-saes/tree/main
 
-from diffusers import DiffusionPipeline
-from hook_wrapper import HookPipe,HookUNet
-from overcomplete import TopKSAE
+
 import torch
 import numpy as np
-
-from accelerate import Accelerator
-from copy import deepcopy
-from diffusers.utils.loading_utils import load_image
 from experiment_helpers.argprint import print_args
 import json
 from PIL import Image
 from loading import get_sae_dict
 from sdxl_unbox.SAE import SparseAutoencoder
-from sdxl_unbox.SDLens import HookedStableDiffusionXLPipeline
 from sdxl_pipe import HookedStableDiffusionXLWithUNetPipeline
 from diffusers import UNet2DConditionModel
 
@@ -23,14 +16,12 @@ from diffusers import UNet2DConditionModel
 import os
 import argparse
 from experiment_helpers.gpu_details import print_details
-from experiment_helpers.saving_helpers import save_and_load_functions
-import torch
+import sys
+sys.stdout.flush()
 
 import time
 import torch.nn.functional as F
 
-from experiment_helpers.loop_decorator import optimization_loop
-from experiment_helpers.data_helpers import split_data
 from experiment_helpers.init_helpers import default_parser,repo_api_init
 from diffusers.image_processor import VaeImageProcessor
 from torch.utils.data import DataLoader,Dataset
@@ -135,7 +126,7 @@ class DreamboothDataset(Dataset):
         
         
 
-parser=default_parser()
+parser=default_parser({"epochs":3})
 
 parser.add_argument("--weight",type=float,default=0.5)
 parser.add_argument("--key",type=str,default="chair")
@@ -145,6 +136,7 @@ parser.add_argument("--nb_concepts",type=int,default=10000,help="n concepts for 
 parser.add_argument("--prefix",type=str,default="features_stablediffusionapi_realistic-vision-v51_32_")
 parser.add_argument("--step",type=int,default=24)
 parser.add_argument("--size",type=int,default=64)
+parser.add_argument("--mask_threshold",type=float,default=0.5)
 
 
 
@@ -170,6 +162,7 @@ def main(args):
     prefix : str = args.prefix
     step : int = args.step
     size:int=args.size
+    mask_threshold:float=args.mask_threshold
     os.makedirs(args.save_dir,exist_ok=True)
 
 
@@ -188,14 +181,14 @@ def main(args):
          pipe = HookedStableDiffusionXLWithUNetPipeline.from_pretrained(
             'stabilityai/sdxl-turbo',
             torch_dtype=dtype,
-            device_map=torch.device('cpu'),
+            device_map="cpu",
             variant=("fp16" if dtype==torch.float16 else None)
         )
 
     path_to_checkpoints = './sdxl_unbox/checkpoints/'
 
     block_list=[
-        "down_blocks.2.attentions.1",
+       # "down_blocks.2.attentions.1",
         "mid_block.attentions.0"
     ]
     
@@ -204,9 +197,14 @@ def main(args):
 
     shape_dict=get_shape_dict('stabilityai/sdxl-turbo',device,size)
     for block in block_list:
-        sae = SparseAutoencoder.load_from_disk(
-            os.path.join(path_to_checkpoints, f"unet.{block}_k10_hidden5120_auxk256_bs4096_lr0.0001", "final"),
-        )
+        try:
+            sae = SparseAutoencoder.load_from_disk(
+                os.path.join(path_to_checkpoints, f"unet.{block}_k10_hidden5120_auxk256_bs4096_lr0.0001", "final"),
+            )
+        except RuntimeError:
+            sae = SparseAutoencoder.load_from_disk(
+                os.path.join(path_to_checkpoints, f"unet.{block}_k10_hidden5120_auxk256_bs4096_lr0.0001", "final"),map_location=torch.device('cpu')
+            )
         means = torch.load(
             os.path.join(path_to_checkpoints, f"unet.{block}_k10_hidden5120_auxk256_bs4096_lr0.0001", "final", "mean.pt"),
             weights_only=True
@@ -234,29 +232,91 @@ def main(args):
         model.requires_grad_(False)
         
     trainable_embedding_dict={
-        block: torch.nn.Parameter(torch.randn(1, saes_dict[block].encoder.weight.size()[0], device=device)) for block in block_list
+        block: torch.nn.Parameter(torch.randn(1, saes_dict[block].encoder.weight.size()[0], device=device,dtype=dtype)) for block in block_list
     }
     unet: UNet2DConditionModel =pipe.unet
     
     unet_modules={}
+    attn_modules:dict[str,torch.nn.Module]={}
     for name,module in unet.named_modules():
         if name in block_list:
             unet_modules[name]=module
+        if name.find("attn1.to")!=-1 or name.find("attn2.to")!=-1:
+            attn_modules[name]=module
+            
+    CACHE_NAME="cache"
+    for attn,attn_block in attn_modules.items():
+        setattr(attn_block,"dict_name",attn)
+        setattr(attn_block,CACHE_NAME,None)
+        def cache_kv(module,input,output):
+            setattr(module,CACHE_NAME,output)
+            if output is not None:
+                return output
+            else:
+                return input
+        
+        attn_block.register_forward_hook(cache_kv)
     
     for block in block_list:
-        def feature_injection(module, input, output):
+        unet_mod=unet_modules[block]
+        sae=saes_dict[block]
+        trainable_embedding=trainable_embedding_dict[block]
+        setattr(unet_mod, "sae_custom",sae)
+        setattr(unet_mod, "trainable_embedding",trainable_embedding)
+        attn_heads=unet_mod.transformer_blocks[0].attn2.heads
+        
+        def feature_injection(module, input, output, block=block, sae=sae,attn_heads=attn_heads):
+            
+            
+            
+            #print("feature injection called with ")
             trainable_embedding=trainable_embedding_dict[block]
-            sae=saes_dict[block]
+
             recons = trainable_embedding @ sae.decoder.weight.T + sae.pre_bias
-            recons=recons.reshape(shape_dict[block])
+            recons=recons.unsqueeze(-1).unsqueeze(-1)
+            to_k=module.transformer_blocks[0].attn2.to_k
+            key=getattr(to_k,CACHE_NAME)
+            to_q=module.transformer_blocks[0].attn2.to_q
+            query=getattr(to_q,CACHE_NAME)
+            
+            batch_size=key.size()[0]
+            [h,w]=shape_dict[block][2:]
+            
+            inner_dim = key.shape[-1]
+            head_dim = inner_dim // attn_heads
+
+            query = query.view(batch_size, -1, attn_heads, head_dim).transpose(1, 2)
+            #print("\t query size",query.size())
+
+            key = key.view(batch_size, -1, attn_heads, head_dim).transpose(1, 2)
+   
+
+            #print("\t hidden states shape after scaled dot product",hidden_states.size())
+            attn_weight = query @ key.transpose(-2, -1)
+            attn_weight = torch.softmax(attn_weight, dim=-1)
+
+            n_tokens=2
+
+            mask=attn_weight.mean(dim=1).view(batch_size, h,w,-1)[:,:,:,:n_tokens].mean(dim=-1) #shape B, h, w
+            
+            mask_min=mask.min()
+            mask_max=mask.max()
+            mask =(mask-mask_min)/(mask_max-mask_min)
+            
+            mask[mask<mask_threshold]=0.
+            mask[mask>0]=weight
+            
+            
+            recons=recons.expand(-1,-1,h,w)
             if type(output)==tuple:
-                print("output ",output[0].size(), recons.size())
-                return ((weight * recons) + (1-weight) * output[0], output[1])
+                if len(output)==2:
+                    return ((mask * recons) + (1-mask) * output[0], output[1])
+                else:
+                    return ((mask * recons) + (1-mask) * output[0],)
             else:
-                print("output ",output.size(), recons.size())
-                return (weight * recons) + (1-weight) * output
-        module=unet_modules[block]
-        module.register_forward_hook(feature_injection)
+                #print("output ",output.size(), recons.size())
+                return (mask * recons) + (1-mask) * output
+        unet_mod.register_forward_hook(feature_injection)
         
                     
     
@@ -273,14 +333,16 @@ def main(args):
     start_epoch=1
     for epoch in range(start_epoch, args.epochs+1):
         loss_list=[]
-        for row in data:
+        for r,row in enumerate(data):
+            if r==limit:
+                break
             img=row["image"].to(device,dtype)
-            encoder_hidden_states=row["input_ids"]
+            #print("img size",img.size())
             latents=vae.encode(img).latent_dist.sample()
             noise = torch.randn_like(latents)
             
             timesteps = torch.randint(
-                0, scheduler.config.num_train_timesteps, (batch_size,), device=latents.device
+                0, scheduler.config.num_train_timesteps, (latents.shape[0],), device=latents.device
             )
             timesteps = timesteps.long()
 
@@ -312,10 +374,14 @@ def main(args):
                 dtype=prompt_embeds.dtype,
                 text_encoder_projection_dim=text_encoder_projection_dim,)
 
+            actual_batch_size = noisy_model_input.shape[0]
+            prompt_embeds = prompt_embeds.expand(actual_batch_size, -1, -1).contiguous()
+            add_text_embeds = add_text_embeds.expand(actual_batch_size, -1).contiguous()
+            add_time_ids = add_time_ids.expand(actual_batch_size, -1).contiguous()
             added_cond_kwargs = {"text_embeds": add_text_embeds, "time_ids": add_time_ids}
-            
-            
-            
+
+
+
             with accelerator.accumulate(params):
                 with accelerator.autocast():
                     
@@ -323,7 +389,6 @@ def main(args):
                         noisy_model_input,timesteps,
                                             encoder_hidden_states=prompt_embeds,
                                             timestep_cond=timestep_cond,
-                                            cross_attention_kwargs={},
                                             added_cond_kwargs=added_cond_kwargs,
                                             return_dict=False,
                     )[0]
@@ -372,7 +437,7 @@ def main(args):
     
     
     for p,prompt in enumerate(prompt_list):
-        gen_img:Image.Image=pipe(prompt,prompt,size,size,num_inference_steps)
+        gen_img:Image.Image=pipe(prompt,prompt,size,size,num_inference_steps).images[0]
         gen_img.save(os.path.join(args.save_dir,f"gen_{p}.jpg"))
             
 
@@ -380,6 +445,7 @@ def main(args):
     
 if __name__=='__main__':
     print_details()
+    print("current process ",os.getpid())
     start=time.time()
     args=parser.parse_args()
     print_args(parser)
