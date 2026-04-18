@@ -273,6 +273,7 @@ def main(args):
             
             #print("feature injection called with ")
             trainable_embedding=trainable_embedding_dict[block]
+            sae=saes_dict[block]
 
             recons = trainable_embedding @ sae.decoder.weight.T + sae.pre_bias
             recons=recons.unsqueeze(-1).unsqueeze(-1)
@@ -308,9 +309,11 @@ def main(args):
             mask[mask<mask_threshold]=0.
             mask[mask>0]=weight
             
+            print("mask size before ",mask.size())
             
             
             recons=recons.expand(batch_size,-1,h,w)
+            mask=mask.unsqueeze(1)
             if type(output)==tuple:
                 print("mask size ",mask.size(), output[0].size(),recons.size())
                 if len(output)==2:
