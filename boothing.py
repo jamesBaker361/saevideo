@@ -188,8 +188,10 @@ def main(args):
     path_to_checkpoints = './sdxl_unbox/checkpoints/'
 
     block_list=[
-       # "down_blocks.2.attentions.1",
-        "mid_block.attentions.0"
+        "down_blocks.2.attentions.1",
+        "mid_block.attentions.0",
+        "up_blocks.0.attentions.0",
+         "up_blocks.0.attentions.1"
     ]
     
     saes_dict:dict[str,SparseAutoencoder] = {}
@@ -307,8 +309,10 @@ def main(args):
             mask[mask>0]=weight
             
             
-            recons=recons.expand(-1,-1,h,w)
+            
+            recons=recons.expand(batch_size,-1,h,w)
             if type(output)==tuple:
+                print("mask size ",mask.size(), output[0].size(),recons.size())
                 if len(output)==2:
                     return ((mask * recons) + (1-mask) * output[0], output[1])
                 else:

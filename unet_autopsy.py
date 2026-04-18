@@ -16,7 +16,8 @@ def get_shape_dict(checkpoint:str,device,size:int=64)->dict[str,list[int]]:
     try:
         pipe =DiffusionPipeline.from_pretrained(checkpoint).to(device,dtype=torch.float16)
     except torch.OutOfMemoryError:
-        pipe=DiffusionPipeline.from_pretrained(checkpoint)
+        print("oom on device pipe on cpu")
+        pipe=DiffusionPipeline.from_pretrained(checkpoint).to(dtype=torch.float32) #cpu doesnt support half precision iirc
     unet=pipe.unet
     names=[name for name,module in unet.named_modules()]
 
