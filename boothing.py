@@ -312,10 +312,8 @@ def main(args):
             print("mask size before ",mask.size())
             
             
-            recons=recons.expand(batch_size,-1,h,w)
             mask=mask.unsqueeze(1)
             if type(output)==tuple:
-                print("mask size ",mask.size(), output[0].size(),recons.size())
                 if len(output)==2:
                     return ((mask * recons) + (1-mask) * output[0], output[1])
                 else:
