@@ -137,6 +137,7 @@ parser.add_argument("--prefix",type=str,default="features_stablediffusionapi_rea
 parser.add_argument("--step",type=int,default=24)
 parser.add_argument("--size",type=int,default=64)
 parser.add_argument("--mask_threshold",type=float,default=0.5)
+parser.add_argument("--use_attn_mask",action="store_true")
 
 
 
@@ -162,6 +163,7 @@ def main(args):
     prefix : str = args.prefix
     step : int = args.step
     size:int=args.size
+    use_attn_mask:bool=args.use_attn_mask
     mask_threshold:float=args.mask_threshold
     os.makedirs(args.save_dir,exist_ok=True)
 
@@ -277,42 +279,46 @@ def main(args):
 
             recons = trainable_embedding @ sae.decoder.weight.T + sae.pre_bias
             recons=recons.unsqueeze(-1).unsqueeze(-1)
-            to_k=module.transformer_blocks[0].attn2.to_k
-            key=getattr(to_k,CACHE_NAME)
-            to_q=module.transformer_blocks[0].attn2.to_q
-            query=getattr(to_q,CACHE_NAME)
             
-            batch_size=key.size()[0]
-            [h,w]=shape_dict[block][2:]
-            
-            inner_dim = key.shape[-1]
-            head_dim = inner_dim // attn_heads
+            if use_attn_mask:
+                to_k=module.transformer_blocks[0].attn2.to_k
+                key=getattr(to_k,CACHE_NAME)
+                to_q=module.transformer_blocks[0].attn2.to_q
+                query=getattr(to_q,CACHE_NAME)
+                
+                batch_size=key.size()[0]
+                [h,w]=shape_dict[block][2:]
+                
+                inner_dim = key.shape[-1]
+                head_dim = inner_dim // attn_heads
 
-            query = query.view(batch_size, -1, attn_heads, head_dim).transpose(1, 2)
-            #print("\t query size",query.size())
+                query = query.view(batch_size, -1, attn_heads, head_dim).transpose(1, 2)
+                #print("\t query size",query.size())
 
-            key = key.view(batch_size, -1, attn_heads, head_dim).transpose(1, 2)
-   
+                key = key.view(batch_size, -1, attn_heads, head_dim).transpose(1, 2)
+    
 
-            #print("\t hidden states shape after scaled dot product",hidden_states.size())
-            attn_weight = query @ key.transpose(-2, -1)
-            attn_weight = torch.softmax(attn_weight, dim=-1)
+                #print("\t hidden states shape after scaled dot product",hidden_states.size())
+                attn_weight = query @ key.transpose(-2, -1)
+                attn_weight = torch.softmax(attn_weight, dim=-1)
 
-            n_tokens=2
+                n_tokens=2
 
-            mask=attn_weight.mean(dim=1).view(batch_size, h,w,-1)[:,:,:,:n_tokens].mean(dim=-1) #shape B, h, w
-            
-            mask_min=mask.min()
-            mask_max=mask.max()
-            mask =(mask-mask_min)/(mask_max-mask_min)
-            
-            mask[mask<mask_threshold]=0.
+                mask=attn_weight.mean(dim=1).view(batch_size, h,w,-1)[:,:,:,:n_tokens].mean(dim=-1) #shape B, h, w
+                
+                mask_min=mask.min()
+                mask_max=mask.max()
+                mask =(mask-mask_min)/(mask_max-mask_min)
+                
+                mask[mask<mask_threshold]=0.
+                mask=mask.unsqueeze(1)
+            else:
+                mask=torch.ones_like(recons)
             mask[mask>0]=weight
             
-            print("mask size before ",mask.size())
             
             
-            mask=mask.unsqueeze(1)
+            
             if type(output)==tuple:
                 if len(output)==2:
                     return ((mask * recons) + (1-mask) * output[0], output[1])
