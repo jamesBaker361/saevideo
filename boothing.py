@@ -138,6 +138,7 @@ parser.add_argument("--step",type=int,default=24)
 parser.add_argument("--size",type=int,default=64)
 parser.add_argument("--mask_threshold",type=float,default=0.5)
 parser.add_argument("--use_attn_mask",action="store_true")
+parser.add_argument("--n_tokens",type=int,default=2)
 
 
 
@@ -165,6 +166,7 @@ def main(args):
     size:int=args.size
     use_attn_mask:bool=args.use_attn_mask
     mask_threshold:float=args.mask_threshold
+    n_tokens:int=args.n_tokens
     os.makedirs(args.save_dir,exist_ok=True)
 
 
@@ -302,8 +304,6 @@ def main(args):
                 attn_weight = query @ key.transpose(-2, -1)
                 attn_weight = torch.softmax(attn_weight, dim=-1)
 
-                n_tokens=2
-
                 mask=attn_weight.mean(dim=1).view(batch_size, h,w,-1)[:,:,:,:n_tokens].mean(dim=-1) #shape B, h, w
                 
                 mask_min=mask.min()
@@ -334,7 +334,7 @@ def main(args):
     
     params=[v for v in trainable_embedding_dict.values()]
     optimizer_class = torch.optim.AdamW
-    optimizer=optimizer_class(params,args.lr)
+    optimizer=optimizer_class(params,lr)
     optimizer.zero_grad()
     
     
