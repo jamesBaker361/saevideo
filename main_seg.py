@@ -5,25 +5,21 @@ import os
 import sys
 import argparse
 from experiment_helpers.gpu_details import print_details
+from experiment_helpers.argprint import print_args
 from accelerate import Accelerator
 import time
 
+from diffusers import UNet2DConditionModel
 import torch.nn.functional as F
 import math
-from diffusers.models.attention_processor import  IPAdapterAttnProcessor2_0,Attention
-from diffusers.image_processor import IPAdapterMaskProcessor
 sys.path.append(os.path.dirname(__file__))
 from ipattn import MonkeyIPAttnProcessor, get_modules_of_types,reset_monkey,insert_monkey, set_ip_adapter_scale_monkey
 import torch
 from experiment_helpers.image_helpers import concat_images_horizontally
 from PIL import Image
-from torchvision.transforms.functional import to_pil_image
-from transformers import AutoProcessor, CLIPModel
 from compatible_pipelines import CompatibleLatentConsistencyModelPipeline
 from hook_wrapper import HookWrapper
 from dino_extract import dino_model, dino_processor, get_last_hidden_states
-#import ImageReward as RM
-
 
 
 #from controlnet_aux import HEDdetector, MidasDetector, MLSDdetector, OpenposeDetector, PidiNetDetector, NormalBaeDetector, LineartDetector, LineartAnimeDetector, CannyDetector, ContentShuffleDetector, ZoeDetector, MediapipeFaceDetector, SamDetector, LeresDetector, DWposeDetector
@@ -69,21 +65,10 @@ Per this papaer: https://arxiv.org/pdf/2504.15473
 down_blocks.2.attentions.1, mid_block.attentions.0, up_blocks.1.attentions.0
 '''
 
-def get_mask(layer_index:int, 
-             attn_list:list,step:int,
-             token:int,dim:int,
-             threshold:float,
-             kv_type:str="ip",
-             vae_scale:int=8):
-    #print("layer",layer_index)
-    module=attn_list[layer_index][1] #get the module no name
-    #module.processor.kv_ip
-    if kv_type=="ip":
-        processor_kv=module.processor.kv_ip
-    elif kv_type=="str":
-        processor_kv=module.processor.kv
-    size=processor_kv[step].size()
-    #print('\tprocessor_kv[step].size()',processor_kv[step].size())
+def get_mask(processor_kv:list[torch.Tensor],
+             step:int,
+             token:int,
+             threshold:float):
     
     avg=processor_kv[step].mean(dim=1).squeeze(0)
     #print("\t avg ", avg.size())
@@ -96,7 +81,7 @@ def get_mask(layer_index:int,
     avg_min,avg_max=avg.min(),avg.max()
     x_norm = (avg - avg_min) / (avg_max - avg_min)  # [0,1]
     x_norm[x_norm < threshold]=0.
-    avg = (x_norm * 255)
+    #avg = (x_norm * 255)
     #avg=F.interpolate(avg.unsqueeze(0).unsqueeze(0), size=(dim, dim), mode="nearest").squeeze(0).squeeze(0)
 
     return avg
@@ -126,15 +111,41 @@ def main(args):
             "SimianLuo/LCM_Dreamshaper_v7",
             torch_dtype=torch.float16,
         ).to(accelerator.device)
+        
+        unet:UNet2DConditionModel =pipe.unet
 
         # Load IP-Adapter
         pipe.load_ip_adapter("h94/IP-Adapter", subfolder="models", weight_name="ip-adapter_sd15.bin")
-        set_ip_adapter_scale_monkey(pipe,args.initial_ip_adapter_scale)
-
         setattr(pipe,"safety_checker",None)
-
+        
+        
+        def hook(module,input,output):
+            setattr(module,"cached_input",input)
+            setattr(module,"cached_output",output)
+            return output
+        
+        block_list=[
+            "down_blocks.0.attentions.0",
+            "down_blocks.1.attentions.0",
+            "down_blocks.2.attentions.0",
+            "down_blocks.0.attentions.1",
+            "down_blocks.1.attentions.1",
+            "down_blocks.2.attentions.1",
+            "mid_block.attentions.0",
+            "up_blocks.1.attentions.0",
+            "up_blocks.2.attentions.0",
+            "up_blocks.1.attentions.1",
+            "up_blocks.2.attentions.1",
+        ]
+        block_dict={}
+        for name,module in unet.named_modules():
+            if name in block_list:
+                module.register_forward_hook(hook)
+                block_dict[name]=module
+                
+        
+        set_ip_adapter_scale_monkey(pipe,args.initial_ip_adapter_scale)
         insert_monkey(pipe)
-        attn_list=get_modules_of_types(pipe.unet,Attention)
 
         #monkey_attn_list=get_modules_of_types(pipe.unet,MonkeyIPAttnProcessor)
         
@@ -147,23 +158,6 @@ def main(args):
         else:
             data=[{"path":file} for file in os.listdir(args.src_dir) if (file.endswith("png") or file.endswith("jpg"))][:args.limit]
             #data=[{"image":Image.open(os.path.join(args.src_dir,file)) }for file in path_list]
-
-        with open(os.path.join("layer_dir","target_lcm_layers.txt")) as txt:
-            diffusion_layers=[s.strip() for s in txt.readlines()]
-            
-        hw=HookWrapper(pipe,diffusion_layers)
-
-        output_dict={
-        "image":[],
-        "mask":[],
-        "mask_int":[],
-        "dino":[]
-        }
-        print("Layers we're collecting from:")
-        for diff in diffusion_layers:
-            print(diff)
-            for step in range(args.initial_steps):
-                output_dict[f"{diff}_{step}"]=[]
                 
         os.makedirs(args.save_dir,mode=0o777,exist_ok=True)
     
@@ -184,14 +178,13 @@ def main(args):
                 continue
             if k==args.limit:
                 break
-            reset_monkey(hw.pipe)
+            reset_monkey(pipe)
             if "image" in row:
                 ip_adapter_image=row["image"]
             else:
                 ip_adapter_image=Image.open(os.path.join(args.src_dir,row["path"]))
             
             dino=get_last_hidden_states(ip_adapter_image,dino_processor,dino_model)
-            output_dict["dino"].append(dino.cpu().detach().numpy())
             
             object=args.object
             if "object" in row:
@@ -201,43 +194,20 @@ def main(args):
             generator=torch.Generator()
             generator.manual_seed(123)
             set_ip_adapter_scale_monkey(pipe,0.5)
-            initial_image,act=hw(prompt,args.dim,args.dim,args.initial_steps,ip_adapter_image=ip_adapter_image,generator=generator)
-            for diff in diffusion_layers:
-                for step in range(args.initial_steps):
+            initial_image=pipe(prompt,args.dim,args.dim,args.initial_steps,ip_adapter_image=ip_adapter_image,generator=generator).images[0]
+            activation_dict={
+                "dino":dino.cpu().detach().numpy()
+            }
+            for block,module in block_dict.items():
+                for key in ["input","output"]:
+                    activation_dict[f"{key}.{block}"]=getattr(module,f"cached_{key}").cpu().detach().numpy()
                     
-                    output_dict[f"{diff}_{step}"].extend(act[diff][step].numpy())
-                    
-            for step in range(args.initial_steps):
-                path=os.path.join(args.save_dir,str(step),f"{k}.npz")
-                results={layer_name:v[step] for layer_name,v in act.items()}
-                np.savez(path,**results)
-                    
-            initial_image=initial_image.images[0]
-
-            mask=sum([get_mask(args.layer_index,attn_list,step,args.token,args.dim,args.threshold) for step in args.initial_mask_step_list])
-            tiny_mask=mask.clone()
-            tiny_mask_pil=to_pil_image(1-tiny_mask)
-            #print("mask size",mask.size())
-
-            mask=F.interpolate(mask.unsqueeze(0).unsqueeze(0), size=(args.dim, args.dim), mode="nearest").squeeze(0).squeeze(0)
-
-            img_path=os.path.join(args.save_dir,"image",f"{k}.png")
-            initial_image.save(img_path)
-
-            mask_pil=to_pil_image(1-mask)
-            color_rgba = initial_image.convert("RGB")
-            mask_pil = mask_pil.convert("RGB")
-            
-            masked_img=Image.blend(color_rgba, mask_pil, 0.5)
-
-            mask[mask>1]=1.
-            inverted_mask=1.0-mask
-            
-            mask_int_pil=to_pil_image(mask)
-            
-            for (key,array) in zip(["mask","dino"],[mask,dino]):
-                path=os.path.join(args.save_dir,key,f"{k}")
-                np.save(path,array.cpu().detach().numpy())
+            for name,processor in pipe.unet.attn_processors.items():
+                if hasattr(processor,"to_kv_ip"):
+                    mask=sum([get_mask(processor.to_kv_ip,step, args.token,args.threshold) for step in args.initial_mask_step_list]).cpu().detach().numpy()
+                    activation_dict[f"mask.{name}"]=mask
+            np.savez(os.path.join(args.save_dir,f"{k}.npz"),**activation_dict)
+            initial_image.save(os.path.join(args.save_dir,f"{k}.jpg"))
 
 
 if __name__=='__main__':
@@ -245,6 +215,7 @@ if __name__=='__main__':
     start=time.time()
     args=parser.parse_args()
     print(args)
+    print_args(parser)
     main(args)
     end=time.time()
     seconds=end-start
