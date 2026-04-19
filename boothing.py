@@ -139,6 +139,8 @@ parser.add_argument("--size",type=int,default=64)
 parser.add_argument("--mask_threshold",type=float,default=0.5)
 parser.add_argument("--use_attn_mask",action="store_true")
 parser.add_argument("--n_tokens",type=int,default=2)
+parser.add_argument("--use_mean",action="store_true")
+parser.add_argument("--use_bias",action="store_true")
 
 
 
@@ -167,6 +169,8 @@ def main(args):
     use_attn_mask:bool=args.use_attn_mask
     mask_threshold:float=args.mask_threshold
     n_tokens:int=args.n_tokens
+    use_mean:bool=args.use_mean
+    use_bias:bool=args.use_bias
     os.makedirs(args.save_dir,exist_ok=True)
 
 
@@ -238,7 +242,7 @@ def main(args):
         model.requires_grad_(False)
         
     trainable_embedding_dict={
-        block: torch.nn.Parameter(torch.randn(1, saes_dict[block].encoder.weight.size()[0], device=device,dtype=dtype)) for block in block_list
+        block: torch.nn.Parameter(torch.randn(1, saes_dict[block].encoder.weight.size()[0], device=device,dtype=dtype) * 0.01) for block in block_list
     }
     unet: UNet2DConditionModel =pipe.unet
     
@@ -278,8 +282,13 @@ def main(args):
             #print("feature injection called with ")
             trainable_embedding=trainable_embedding_dict[block]
             sae=saes_dict[block]
-
-            recons = trainable_embedding @ sae.decoder.weight.T + sae.pre_bias
+            mean=means_dict[block]
+            if use_mean:
+                recons=trainable_embedding-mean
+                recons=recons @ sae.decoder.weight.T
+            recons = trainable_embedding @ sae.decoder.weight.T
+            if use_bias:
+                recons=recons+sae.pre_bias
             recons=recons.unsqueeze(-1).unsqueeze(-1)
             
             if use_attn_mask:
@@ -308,7 +317,7 @@ def main(args):
                 
                 mask_min=mask.min()
                 mask_max=mask.max()
-                mask =(mask-mask_min)/(mask_max-mask_min)
+                mask =(mask-mask_min)/(mask_max-mask_min+1e-6)
                 
                 mask[mask<mask_threshold]=0.
                 mask=mask.unsqueeze(1)
