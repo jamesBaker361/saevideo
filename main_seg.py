@@ -146,6 +146,10 @@ def main(args):
         
         set_ip_adapter_scale_monkey(pipe,args.initial_ip_adapter_scale)
         insert_monkey(pipe)
+        print("len pipe.unet.attn_processors ",len(pipe.unet.attn_processors))
+        for name,processor in pipe.unet.attn_processors.items():
+            if hasattr(processor,"kv_ip"):
+                print(f"{name} is type {type(processor)} and has property kv_ip")
 
         #monkey_attn_list=get_modules_of_types(pipe.unet,MonkeyIPAttnProcessor)
         
@@ -206,8 +210,8 @@ def main(args):
                     activation_dict[f"{key}.{block}"]=activation.cpu().detach().numpy()
                     
             for name,processor in pipe.unet.attn_processors.items():
-                if hasattr(processor,"to_kv_ip"):
-                    mask=sum([get_mask(processor.to_kv_ip,step, args.token,args.threshold) for step in args.initial_mask_step_list]).cpu().detach().numpy()
+                if hasattr(processor,"kv_ip"):
+                    mask=sum([get_mask(processor.kv_ip,step, args.token,args.threshold) for step in args.initial_mask_step_list]).cpu().detach().numpy()
                     activation_dict[f"mask.{name}"]=mask
             np.savez(os.path.join(args.save_dir,f"{k}.npz"),**activation_dict)
             initial_image.save(os.path.join(args.save_dir,f"{k}.jpg"))
