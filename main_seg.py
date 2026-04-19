@@ -200,7 +200,10 @@ def main(args):
             }
             for block,module in block_dict.items():
                 for key in ["input","output"]:
-                    activation_dict[f"{key}.{block}"]=getattr(module,f"cached_{key}").cpu().detach().numpy()
+                    activation=getattr(module,f"cached_{key}")
+                    if type(activation)==tuple:
+                        activation=activation[0]
+                    activation_dict[f"{key}.{block}"]=activation.cpu().detach().numpy()
                     
             for name,processor in pipe.unet.attn_processors.items():
                 if hasattr(processor,"to_kv_ip"):
