@@ -121,11 +121,15 @@ def main(args):
         
         def hook(module,input,output):
             setattr(module,"cached_input",input)
-            if torch.isnan(input).any():
-                print("nan input ")
+            if type(input)==tuple:
+                for i,input_tensor in enumerate(input):
+                    if torch.isnan(input_tensor).any():
+                        print("nan input ",i)
             setattr(module,"cached_output",output)
-            if torch.isnan(output).any():
-                print("nan output")
+            if type(output)==tuple:
+                for o,output_tensor in enumerate(output):
+                    if torch.isnan(output_tensor).any():
+                        print("nan output ",o)
             return output
         
         block_list=[
