@@ -208,13 +208,15 @@ def main(args):
                     if type(activation)==tuple:
                         activation=activation[0]
                     activation_dict[f"{key}.{block}"]=activation.cpu().detach().numpy()
-                    
+                    setattr(module,f"cached_{key}",None)
             for name,processor in pipe.unet.attn_processors.items():
                 if hasattr(processor,"kv_ip"):
                     mask=sum([get_mask(processor.kv_ip,step, args.token,args.threshold) for step in args.initial_mask_step_list]).cpu().detach().numpy()
                     activation_dict[f"mask.{name}"]=mask
+                    setattr(processor,"kv_ip",None)
             np.savez(os.path.join(args.save_dir,f"{k}.npz"),**activation_dict)
             initial_image.save(os.path.join(args.save_dir,f"{k}.jpg"))
+            accelerator.free_memory()
 
 
 if __name__=='__main__':
