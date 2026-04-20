@@ -224,7 +224,7 @@ def main(args):
                         print("nan mask")
                     mask=mask.cpu().detach().numpy()
                     activation_dict[f"mask.{name}"]=mask
-                    setattr(processor,"kv_ip",None)
+                    #setattr(processor,"kv_ip",None)
             np.savez(os.path.join(args.save_dir,f"{k}.npz"),**activation_dict)
             initial_image.save(os.path.join(args.save_dir,f"{k}.jpg"))
             if k==count:
