@@ -331,6 +331,8 @@ def main(args):
             
             
             if type(output)==tuple:
+                if type(input) ==tuple:
+                    input=input[0]
                 original=output[0]-input
                 
                 if len(output)>=2:
