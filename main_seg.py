@@ -121,7 +121,11 @@ def main(args):
         
         def hook(module,input,output):
             setattr(module,"cached_input",input)
+            if torch.isnan(input).any():
+                print("nan input ")
             setattr(module,"cached_output",output)
+            if torch.isnan(output).any():
+                print("nan output")
             return output
         
         block_list=[
