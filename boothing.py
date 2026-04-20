@@ -285,6 +285,8 @@ def main(args):
             
             #print("feature injection called with ")
             trainable_embedding=trainable_embedding_dict[block]
+            if torch.isnan(trainable_embedding).any():
+                print("nan trainable embedding")
             sae=saes_dict[block]
             mean=means_dict[block]
             if use_mean:
@@ -293,7 +295,7 @@ def main(args):
             else:
                 recons = trainable_embedding @ sae.decoder.weight.T
                 
-            if torch.isnan(recons):
+            if torch.isnan(recons).any():
                 print("recons nan")
             if use_bias:
                 recons=recons+sae.pre_bias
