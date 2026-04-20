@@ -215,7 +215,10 @@ def main(args):
                     setattr(module,f"cached_{key}",None)
             for name,processor in pipe.unet.attn_processors.items():
                 if hasattr(processor,"kv_ip"):
-                    mask=sum([get_mask(processor.kv_ip,step, args.token,args.threshold) for step in args.initial_mask_step_list]).cpu().detach().numpy()
+                    mask=sum([get_mask(processor.kv_ip,step, args.token,args.threshold) for step in args.initial_mask_step_list])
+                    if torch.isnan(mask).any():
+                        print("nan mask")
+                    mask=mask.cpu().detach().numpy()
                     activation_dict[f"mask.{name}"]=mask
                     setattr(processor,"kv_ip",None)
             np.savez(os.path.join(args.save_dir,f"{k}.npz"),**activation_dict)
