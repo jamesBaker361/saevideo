@@ -290,6 +290,9 @@ def main(args):
                 recons=recons @ sae.decoder.weight.T
             else:
                 recons = trainable_embedding @ sae.decoder.weight.T
+                
+            if torch.isnan(recons):
+                print("recons nan")
             if use_bias:
                 recons=recons+sae.pre_bias
             recons=recons.unsqueeze(-1).unsqueeze(-1)
@@ -335,6 +338,9 @@ def main(args):
                 if type(input) ==tuple:
                     input=input[0]
                 original=output[0]-input
+                
+                if torch.isnan(original).any():
+                    print("orignal nan")
                 
                 if len(output)>=2:
                     
@@ -410,7 +416,7 @@ def main(args):
 
 
             with accelerator.accumulate(params):
-                with accelerator.autocast():
+                with accelerator.autocast(): #possibly THIS is bad???
                     
                     model_pred = unet.forward(
                         noisy_model_input,timesteps,
