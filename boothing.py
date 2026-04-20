@@ -130,7 +130,7 @@ class DreamboothDataset(Dataset):
 
 parser=default_parser({"epochs":3})
 
-parser.add_argument("--weight",type=float,default=0.0)
+parser.add_argument("--weight",type=float,default=0.01)
 parser.add_argument("--key",type=str,default="chair")
 parser.add_argument("--checkpoint",type=str,default="stablediffusionapi/realistic-vision-v51")
 parser.add_argument("--num_inference_steps",type=int,default=2)
@@ -244,7 +244,7 @@ def main(args):
         model.requires_grad_(False)
         
     trainable_embedding_dict={
-        block: torch.nn.Parameter(torch.randn(1, saes_dict[block].encoder.weight.size()[0], device=device,dtype=dtype) * 0.01) for block in block_list
+        block: torch.nn.Parameter(torch.zeros(1, saes_dict[block].encoder.weight.size()[0], device=device,dtype=dtype)) for block in block_list
     }
     unet: UNet2DConditionModel =pipe.unet
     
@@ -288,7 +288,8 @@ def main(args):
             if use_mean:
                 recons=trainable_embedding-mean
                 recons=recons @ sae.decoder.weight.T
-            recons = trainable_embedding @ sae.decoder.weight.T
+            else:
+                recons = trainable_embedding @ sae.decoder.weight.T
             if use_bias:
                 recons=recons+sae.pre_bias
             recons=recons.unsqueeze(-1).unsqueeze(-1)
@@ -337,12 +338,12 @@ def main(args):
                 
                 if len(output)>=2:
                     
-                    return ((mask * recons) + (1-mask) * original+input, *output[1:])
+                    return ((mask * recons) + ((1-mask) * original)+input, *output[1:])
                 else:
-                    return ((mask * recons) + (1-mask) * original+input,)
+                    return ((mask * recons) + ((1-mask) * original)+input,)
             else:
                 original=output-input
-                return (mask * recons) + (1-mask) * original+input
+                return (mask * recons) + ((1-mask) * original)+input
         unet_mod.register_forward_hook(feature_injection)
         
                     
@@ -381,8 +382,7 @@ def main(args):
             negative_prompt_embeds,
             pooled_prompt_embeds,
             negative_pooled_prompt_embeds,
-            )=pipe.encode_prompt(
-            row["prompt"],row["prompt"],device,1,False," "," ")
+            )=pipe.encode_prompt(row["prompt"],row["prompt"],device,1,False," "," ")
             timestep_cond=None
             add_text_embeds = pooled_prompt_embeds
 
