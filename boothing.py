@@ -330,13 +330,16 @@ def main(args):
             
             
             if type(output)==tuple:
-                if len(output)==2:
-                    return ((mask * recons) + (1-mask) * output[0], output[1])
+                original=output[0]-input
+                
+                if len(output)>=2:
+                    
+                    return ((mask * recons) + (1-mask) * original+input, *output[1:])
                 else:
-                    return ((mask * recons) + (1-mask) * output[0],)
+                    return ((mask * recons) + (1-mask) * original+input,)
             else:
-                #print("output ",output.size(), recons.size())
-                return (mask * recons) + (1-mask) * output
+                original=output[0]-input
+                return (mask * recons) + (1-mask) * original+input
         unet_mod.register_forward_hook(feature_injection)
         
                     

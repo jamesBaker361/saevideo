@@ -156,7 +156,6 @@ def main(args):
     nb_concepts : int = args.nb_concepts
     sae_model : str = args.sae_model
     model_layer : str = args.model_layer
-    local_global_split  = args.local_global_split
     src_dir_list  = args.src_dir_list
     use_dino  = args.use_dino
     use_mask  = args.use_mask
