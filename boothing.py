@@ -11,6 +11,7 @@ from loading import get_sae_dict
 from sdxl_unbox.SAE import SparseAutoencoder
 from sdxl_pipe import HookedStableDiffusionXLWithUNetPipeline
 from diffusers import UNet2DConditionModel
+import wandb
 
 
 import os
@@ -129,7 +130,7 @@ class DreamboothDataset(Dataset):
 
 parser=default_parser({"epochs":3})
 
-parser.add_argument("--weight",type=float,default=0.5)
+parser.add_argument("--weight",type=float,default=0.0)
 parser.add_argument("--key",type=str,default="chair")
 parser.add_argument("--checkpoint",type=str,default="stablediffusionapi/realistic-vision-v51")
 parser.add_argument("--num_inference_steps",type=int,default=2)
@@ -338,7 +339,7 @@ def main(args):
                 else:
                     return ((mask * recons) + (1-mask) * original+input,)
             else:
-                original=output[0]-input
+                original=output-input
                 return (mask * recons) + (1-mask) * original+input
         unet_mod.register_forward_hook(feature_injection)
         
@@ -463,6 +464,9 @@ def main(args):
     for p,prompt in enumerate(prompt_list):
         gen_img:Image.Image=pipe(prompt,prompt,size,size,num_inference_steps).images[0]
         gen_img.save(os.path.join(args.save_dir,f"gen_{p}.jpg"))
+        accelerator.log({
+            f"img_{p}":wandb.Image(gen_img)
+        })
             
 
     #hooker.forward(sae_src_list,"walking",height=64,width=64,num_inference_steps=4)
