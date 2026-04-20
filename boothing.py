@@ -335,10 +335,19 @@ def main(args):
                 mask=torch.ones_like(recons)
             mask[mask>0]=weight
             
-            
+            if type(input)==tuple:
+                for i,input_tensor in enumerate(input):
+                    if torch.isnan(input_tensor).any():
+                        print("nan input ",i)
+                        
+            if type(output)==tuple:
+                for o,output_tensor in enumerate(output):
+                    if torch.isnan(output_tensor).any():
+                        print("nan output ",o)
             
             
             if type(output)==tuple:
+                
                 if type(input) ==tuple:
                     input=input[0]
                 original=output[0]-input
