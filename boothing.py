@@ -384,8 +384,11 @@ def main(args):
             if r==limit:
                 break
             img=row["image"].to(device,dtype)
+            print("img max min ",img.max(),img.min())
             #print("img size",img.size())
             latents=vae.encode(img).latent_dist.sample()
+            if torch.isnan(latents).any():
+                print("is nan latents ")
             noise = torch.randn_like(latents)
             
             timesteps = torch.randint(
