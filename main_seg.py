@@ -173,7 +173,7 @@ def main(args):
             
         os.makedirs(os.path.join(args.save_dir,"dino"),exist_ok=True)
         
-        count=len([f for f in os.listdir(os.path.join(args.save_dir,"dino")) if f.endswith("npy")])
+        count=len([f for f in os.listdir(args.save_dir,"dino") if f.endswith("npz")])
         
         print(f"found {count} different images total data len {len(data)}")
 
@@ -216,6 +216,8 @@ def main(args):
                     setattr(processor,"kv_ip",None)
             np.savez(os.path.join(args.save_dir,f"{k}.npz"),**activation_dict)
             initial_image.save(os.path.join(args.save_dir,f"{k}.jpg"))
+            if k==count:
+                print("saving to ",os.path.join(args.save_dir,f"{k}.npz"),os.path.join(args.save_dir,f"{k}.jpg"))
             accelerator.free_memory()
 
 
