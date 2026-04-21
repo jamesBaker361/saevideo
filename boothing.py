@@ -395,7 +395,7 @@ def main(args):
             noise = torch.randn_like(latents)
             
             timesteps = torch.randint(
-                0, 2, (latents.shape[0],), device=latents.device
+                0, scheduler.config.num_train_timesteps, (latents.shape[0],), device=latents.device
             )
             timesteps = timesteps.long()
 
@@ -435,25 +435,25 @@ def main(args):
 
 
             with accelerator.accumulate(params):
-                with accelerator.autocast(): #possibly THIS is bad???
+                #with accelerator.autocast(): #possibly THIS is bad???
                     
-                    model_pred = unet.forward(
-                        noisy_model_input,timesteps,
-                                            encoder_hidden_states=prompt_embeds,
-                                            timestep_cond=timestep_cond,
-                                            added_cond_kwargs=added_cond_kwargs,
-                                            return_dict=False,
-                    )[0]
+                model_pred = unet.forward(
+                    noisy_model_input,timesteps,
+                                        encoder_hidden_states=prompt_embeds,
+                                        timestep_cond=timestep_cond,
+                                        added_cond_kwargs=added_cond_kwargs,
+                                        return_dict=False,
+                )[0]
+                
+                if scheduler.config.prediction_type == "epsilon":
+                    target = noise
+                elif scheduler.config.prediction_type == "v_prediction":
+                    target = scheduler.get_velocity(latents, noise, timesteps)
                     
-                    if scheduler.config.prediction_type == "epsilon":
-                        target = noise
-                    elif scheduler.config.prediction_type == "v_prediction":
-                        target = scheduler.get_velocity(latents, noise, timesteps)
-                        
-                    loss = F.mse_loss(model_pred.float(), target.float(), reduction="mean")
-                    accelerator.backward(loss)
-                    optimizer.step()
-                    optimizer.zero_grad()
+                loss = F.mse_loss(model_pred.float(), target.float(), reduction="mean")
+                accelerator.backward(loss)
+                optimizer.step()
+                optimizer.zero_grad()
             loss_list.append(loss.cpu().detach().numpy())
             
         accelerator.log({
