@@ -23,7 +23,7 @@ from torchvision.transforms import Resize
 parser=default_parser({
     "project_name":"sae",
     "src_dataset":"jbaker361/filler",
-    "repo_id":"jlbaker361/sae-test"
+    "repo_id":"jlbaker361/sae-test",
 })
 
 KSAE="ksae"
@@ -123,14 +123,11 @@ class LatentLocalDataset(torch.utils.data.Dataset):
         diff=outputs-inputs
         mask=np.sum(npz_dict["mask"],axis=0)
         
-        print(mask.shape)
-        print(diff.shape)
         valid = (mask != 0)
         diff = diff[:, :, valid]
-        print(diff.shape)
         
         diff=torch.tensor(diff).permute(0,2,1).flatten(0,1) #b,c,hw -> bhw,c
-        dino=torch.tensor(npz_dict["dino"])
+        dino=torch.tensor(npz_dict["dino"]).unsqueeze(0).expand(diff.size()[0],-1)
         
         return {
             "act":diff,
@@ -192,7 +189,7 @@ def main(args):
                                 args.model_layer,
                                 use_mask)
     
-    train_loader,test_loader,val_loader=split_data(dataset,0.95,args.batch_size)
+    train_loader,test_loader,val_loader=split_data(dataset,0.95,batch_size)
     
     for batch in train_loader:
         break
@@ -348,7 +345,7 @@ def main(args):
                         
                         dino_loss=criterion(dino,x_hat_dino,z_pre_dino,z_dino,dino_sae_model.get_dictionary())
                         
-                        z_dino=z_dino.expand(bhw,nb_concepts)
+                        #z_dino=z_dino.expand(bhw,-1)
                         difference=F.mse_loss(z_dino,z)
                         logging_dict["dino_loss"]=dino_loss.cpu().detach().numpy()
                         logging_dict["differences"]=difference.cpu().detach().numpy()
@@ -369,7 +366,7 @@ def main(args):
                     
                     dino_loss=criterion(dino,x_hat_dino,z_pre_dino,z_dino,dino_sae_model.get_dictionary())
                     
-                    difference=args.use_dino_coefficient*F.mse_loss(z_dino,z)
+                    difference=args.dino_coefficient*F.mse_loss(z_dino,z)
                     
                     loss+=difference+dino_loss
                     

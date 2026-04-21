@@ -253,6 +253,15 @@ def main(args):
     }
     unet: UNet2DConditionModel =pipe.unet
     
+    for block in block_list:
+        trainable_embedding=trainable_embedding_dict[block]
+        sae=saes_dict[block]
+        
+        recons=trainable_embedding @ sae.decoder.weight.T
+        
+        if torch.isnan(recons).any():
+            print(block, " initial recons thing is nan or something ")
+    
     unet_modules={}
     attn_modules:dict[str,torch.nn.Module]={}
     for name,module in unet.named_modules():
