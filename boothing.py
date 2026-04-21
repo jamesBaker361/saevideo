@@ -389,7 +389,7 @@ def main(args):
             img=row["image"].to(device,dtype)
             print("img max min ",img.max(),img.min())
             #print("img size",img.size())
-            latents=vae.encode(img).latent_dist.sample()
+            latents=vae.config.scaling_factor*vae.encode(img).latent_dist.sample()
             if torch.isnan(latents).any():
                 print("is nan latents ")
             noise = torch.randn_like(latents)
