@@ -11,6 +11,7 @@ from loading import get_sae_dict
 from sdxl_unbox.SAE import SparseAutoencoder
 from sdxl_pipe import HookedStableDiffusionXLWithUNetPipeline
 from diffusers import UNet2DConditionModel
+from diffusers import DiffusionPipeline, AutoencoderKL
 import wandb
 
 
@@ -197,6 +198,8 @@ def main(args):
 
     path_to_checkpoints = './sdxl_unbox/checkpoints/'
 
+    
+
     block_list=[
         "down_blocks.2.attentions.1",
         "mid_block.attentions.0",
@@ -234,7 +237,7 @@ def main(args):
 
     device, dtype = get_unet_device_dtype(pipe.unet)
 
-    
+    pipe.vae = AutoencoderKL.from_pretrained("madebyollin/sdxl-vae-fp16-fix", torch_dtype=torch.float16)
 
     vae=pipe.vae
     text_encoder=pipe.text_encoder
