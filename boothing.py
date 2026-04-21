@@ -211,6 +211,7 @@ def main(args):
     means_dict = {}
 
     shape_dict=get_shape_dict('stabilityai/sdxl-turbo',device,size)
+    trainable_embedding_dict={}
     for block in block_list:
         try:
             sae = SparseAutoencoder.load_from_disk(
@@ -228,9 +229,10 @@ def main(args):
         )
         saes_dict[block] = sae.to(device, dtype=dtype)
         saes_dict[block].requires_grad_(False)
-        means_dict[block] = means.to(device, dtype=dtype)
         print(block,shape_dict[block])
         print(means.size(), means.max(),means.min(), means.std(),means.mean())
+        trainable_embedding_dict[block]=means.to(device, dtype=dtype)
+        means.requires_grad_(True)
         
     def get_unet_device_dtype(unet):
         param = next(unet.parameters())
@@ -249,9 +251,6 @@ def main(args):
     for model in [vae,text_encoder,unet]:
         model.requires_grad_(False)
         
-    trainable_embedding_dict={
-        block: torch.nn.Parameter(torch.zeros(1, saes_dict[block].encoder.weight.size()[0], device=device,dtype=dtype)) for block in block_list
-    }
     unet: UNet2DConditionModel =pipe.unet
     
     for block in block_list:
