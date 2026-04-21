@@ -237,7 +237,7 @@ def main(args):
 
     device, dtype = get_unet_device_dtype(pipe.unet)
 
-    pipe.vae = AutoencoderKL.from_pretrained("madebyollin/sdxl-vae-fp16-fix", torch_dtype=torch.float16)
+    pipe.vae = AutoencoderKL.from_pretrained("madebyollin/sdxl-vae-fp16-fix", torch_dtype=torch.float16).to(device)
 
     vae=pipe.vae
     text_encoder=pipe.text_encoder
