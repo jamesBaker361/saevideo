@@ -184,8 +184,10 @@ def main(args):
     
     istopk=(sae_model==KSAE)
 
+    if len(src_dir_list) ==0:
+        src_dir_list=["seg_ip_flickr","seg_ip_huggan_wikiart"]
     shape_dict=get_shape_dict(args.checkpoint,device)
-    dataset= LatentLocalDataset(args.src_dir_list,
+    dataset= LatentLocalDataset(src_dir_list,
                                 args.model_layer,
                                 use_mask)
     
