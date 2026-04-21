@@ -261,6 +261,8 @@ def main(args):
         
         if torch.isnan(recons).any():
             print(block, " initial recons thing is nan or something ")
+        else:
+            print("max min ",recons.max(),recons.min())
     
     unet_modules={}
     attn_modules:dict[str,torch.nn.Module]={}
@@ -357,7 +359,7 @@ def main(args):
                     if torch.isnan(output_tensor).any():
                         print("nan output ",o)
                         
-            return output
+            #return output
             
             
             if type(output)==tuple:
@@ -398,7 +400,7 @@ def main(args):
             if r==limit:
                 break
             img=row["image"].to(device,dtype)
-            print("img max min ",img.max(),img.min())
+            #print("img max min ",img.max(),img.min())
             #print("img size",img.size())
             latents=vae.config.scaling_factor*vae.encode(img).latent_dist.sample()
             if torch.isnan(latents).any():
