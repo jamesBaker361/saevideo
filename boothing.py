@@ -229,6 +229,8 @@ def main(args):
         )
         saes_dict[block] = sae.to(device, dtype=dtype)
         saes_dict[block].requires_grad_(False)
+        means_dict[block]=means.copy()
+        means_dict[block].requires_grad_(False)
         print(block,shape_dict[block])
         print(means.size(), means.max(),means.min(), means.std(),means.mean())
         trainable_embedding_dict[block]=means.to(device, dtype=dtype)
