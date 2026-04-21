@@ -467,7 +467,7 @@ def main(args):
                         
                     loss = F.mse_loss(model_pred.float(), target.float(), reduction="mean")
                     accelerator.backward(loss)
-                    if accelerator.sync_gradients():
+                    if accelerator.sync_gradients:
                         accelerator.clip_grad_norm_(params,1.0)
                     optimizer.step()
                     optimizer.zero_grad()
