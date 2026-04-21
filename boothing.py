@@ -395,7 +395,7 @@ def main(args):
             noise = torch.randn_like(latents)
             
             timesteps = torch.randint(
-                0, scheduler.config.num_train_timesteps, (latents.shape[0],), device=latents.device
+                0, 2, (latents.shape[0],), device=latents.device
             )
             timesteps = timesteps.long()
 
