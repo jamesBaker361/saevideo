@@ -347,6 +347,8 @@ def main(args):
                 for o,output_tensor in enumerate(output):
                     if torch.isnan(output_tensor).any():
                         print("nan output ",o)
+                        
+            return output
             
             
             if type(output)==tuple:
@@ -407,7 +409,7 @@ def main(args):
             negative_prompt_embeds,
             pooled_prompt_embeds,
             negative_pooled_prompt_embeds,
-            )=pipe.encode_prompt("image","image",device,1,False," "," ")
+            )=pipe.encode_prompt(row["prompt"],row["prompt"],device,1,False," "," ")
             timestep_cond=None
             add_text_embeds = pooled_prompt_embeds
 
