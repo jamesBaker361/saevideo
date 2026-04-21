@@ -230,6 +230,7 @@ def main(args):
         saes_dict[block].requires_grad_(False)
         means_dict[block] = means.to(device, dtype=dtype)
         print(block,shape_dict[block])
+        print(means.size(), means.max(),means.min(), means.std(),means.mean())
         
     def get_unet_device_dtype(unet):
         param = next(unet.parameters())
