@@ -407,7 +407,7 @@ def main(args):
             negative_prompt_embeds,
             pooled_prompt_embeds,
             negative_pooled_prompt_embeds,
-            )=pipe.encode_prompt(row["prompt"],row["prompt"],device,1,False," "," ")
+            )=pipe.encode_prompt("image","image",device,1,False," "," ")
             timestep_cond=None
             add_text_embeds = pooled_prompt_embeds
 
