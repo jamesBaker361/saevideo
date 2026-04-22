@@ -89,10 +89,8 @@ def main(args):
     api,accelerator,device=repo_api_init(args)
     shape_dict=get_shape_dict(args.checkpoint,device,args.size)
     
-    sae_dict=get_sae_dict(args.checkpoint,device,args.nb_concepts,args.layers,args.prefix,args.step)
-    for layer,ksae in sae_dict.items():
-        if torch.cuda.is_available():
-            sae_dict[layer]=ksae.to(device)
+    
+    
     img = Image.new("RGB", (512, 512), color=(255, 255, 255))
     
     dino=get_last_hidden_states(img,dino_processor,dino_model).to(device)
@@ -107,6 +105,11 @@ def main(args):
     step=str(args.step)
     
     if use_dino:
+        
+        sae_dict=get_sae_dict(args.checkpoint,device,args.nb_concepts,args.layers,args.prefix,args.step)
+        for layer,ksae in sae_dict.items():
+            if torch.cuda.is_available():
+                sae_dict[layer]=ksae.to(device)
     
         for layer,ksae in dino_sae_dict.items():
             if torch.cuda.is_available():
