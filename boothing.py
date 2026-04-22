@@ -13,6 +13,7 @@ from sdxl_pipe import HookedStableDiffusionXLWithUNetPipeline
 from diffusers import UNet2DConditionModel
 from diffusers import DiffusionPipeline, AutoencoderKL
 import wandb
+from transformers import CLIPTokenizer
 
 
 import os
@@ -78,7 +79,7 @@ def compute_text_embeddings(prompt,tokenizer,text_encoder):
     return prompt_embeds
 
 class DreamboothDataset(Dataset):
-    def __init__(self,key:str,text_encoder,tokenizer,size:int):
+    def __init__(self,key:str,text_encoder,tokenizer,size:int,category:str,class_token:str):
         super().__init__()
         self.image_processor=VaeImageProcessor()
         self.tokenizer=tokenizer
@@ -88,16 +89,7 @@ class DreamboothDataset(Dataset):
         
         samples_per_epoch=128 #this has to be high in case we want large batch sizes
         
-        with open("pcs_dataset/info.json","r") as f:
-            mapping=json.load(f)
-            
         
-        if key in mapping["subjects"]["subject_with_cls"]:
-            category="subjects"
-            class_token =mapping["subjects"]["subject_with_cls"][key]
-        elif key in mapping["face"]["id_with_gender"]:
-            category="face"
-            class_token= mapping["face"]["id_with_gender"][key]
 
         self.prompt_list = [
                     'a {0} {1} '.format(unique_token, class_token) for _ in range(samples_per_epoch)
@@ -248,7 +240,7 @@ def main(args):
     text_encoder=pipe.text_encoder
     unet=pipe.unet
     scheduler=pipe.scheduler
-    tokenizer=pipe.tokenizer
+    tokenizer:CLIPTokenizer=pipe.tokenizer
     
     for model in [vae,text_encoder,unet]:
         model.requires_grad_(False)
@@ -265,6 +257,19 @@ def main(args):
             print(block, " initial recons thing is nan or something ")
         else:
             print("max min ",recons.max(),recons.min())
+    
+    with open("pcs_dataset/info.json","r") as f:
+        mapping=json.load(f)
+        
+    if key in mapping["subjects"]["subject_with_cls"]:
+            category="subjects"
+            class_token =mapping["subjects"]["subject_with_cls"][key]
+    elif key in mapping["face"]["id_with_gender"]:
+        category="face"
+        class_token= mapping["face"]["id_with_gender"][key]
+    
+    data=DreamboothDataset(args.key,text_encoder,tokenizer,size,category,class_token)
+    token_count=len(tokenizer(class_token,truncation=False,padding=False)["input_ids"])-2 #ignoring the start and stop tokens
     
     unet_modules={}
     attn_modules:dict[str,torch.nn.Module]={}
@@ -313,8 +318,6 @@ def main(args):
                 
             if torch.isnan(recons).any():
                 print("recons nan")
-            else:
-                print("recons okay :)")
             if use_bias:
                 recons=recons+sae.pre_bias
             recons=recons.unsqueeze(-1).unsqueeze(-1)
@@ -341,7 +344,8 @@ def main(args):
                 attn_weight = query @ key.transpose(-2, -1)
                 attn_weight = torch.softmax(attn_weight, dim=-1)
 
-                mask=attn_weight.mean(dim=1).view(batch_size, h,w,-1)[:,:,:,:n_tokens].mean(dim=-1) #shape B, h, w
+                token_index=2 #we assume the relevant token is the second one if the prompt is "<sks> class"
+                mask=attn_weight.mean(dim=1).view(batch_size, h,w,-1)[:,:,:,token_index:token_index+token_count].mean(dim=-1) #shape B, h, w
                 
                 mask_min=mask.min()
                 mask_max=mask.max()
@@ -393,8 +397,6 @@ def main(args):
     optimizer=optimizer_class(params,lr)
     optimizer.zero_grad()
     
-    
-    data=DreamboothDataset(args.key,text_encoder,tokenizer,size)
     
     
     start_epoch=1
