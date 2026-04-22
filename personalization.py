@@ -106,19 +106,21 @@ def main(args):
     
     step=str(args.step)
     
-    for layer,ksae in dino_sae_dict.items():
-        if torch.cuda.is_available():
-            ksae.load_state_dict(
-                torch.load(
-                    os.path.join("sae_model",args.prefix,layer,step,"dino_weights.pt")
+    if use_dino:
+    
+        for layer,ksae in dino_sae_dict.items():
+            if torch.cuda.is_available():
+                ksae.load_state_dict(
+                    torch.load(
+                        os.path.join("sae_model",args.prefix,layer,step,"dino_weights.pt")
+                    )
                 )
-            )
-        else:
-            ksae.load_state_dict(
-                torch.load(
-                    os.path.join("sae_model",args.prefix,layer,step,"dino_weights.pt"),map_location=torch.device("cpu")
+            else:
+                ksae.load_state_dict(
+                    torch.load(
+                        os.path.join("sae_model",args.prefix,layer,step,"dino_weights.pt"),map_location=torch.device("cpu")
+                    )
                 )
-            )
     #https://github.com/zhangxulu1996/awesome-personalization
     
     data=PersonaDataset(args.subset,(args.size,args.size),keyword=False)
