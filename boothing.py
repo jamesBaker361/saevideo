@@ -344,7 +344,7 @@ def main(args):
                 attn_weight = query @ key.transpose(-2, -1)
                 attn_weight = torch.softmax(attn_weight, dim=-1)
 
-                token_index=2 #we assume the relevant token is the second one if the prompt is "<sks> class"
+                token_index=2 #we assume the relevant token is the second one if the prompt is " <start> <sks> class "
                 mask=attn_weight.mean(dim=1).view(batch_size, h,w,-1)[:,:,:,token_index:token_index+token_count].mean(dim=-1) #shape B, h, w
                 
                 mask_min=mask.min()

@@ -13,6 +13,7 @@ import argparse
 from experiment_helpers.gpu_details import print_details
 from experiment_helpers.saving_helpers import save_and_load_functions
 import torch
+from diffusers import UNet2DConditionModel
 
 import time
 import torch.nn.functional as F
@@ -39,13 +40,13 @@ parser.add_argument("--checkpoint",type=str,default="SimianLuo/LCM_Dreamshaper_v
 parser.add_argument("--nb_concepts",type=int,default=10000,help="n concepts for SAE")
 parser.add_argument("--parent_dir",type=str,default="sae_model")
 parser.add_argument("--prefix",type=str,default="seg_ip_txt_")
-parser.add_argument("--monkey",action="store_true",help="use monkey to generate images")
+parser.add_argument("--use_mask",action="store_true",help="use use_mask to generate images")
 parser.add_argument("--step",type=int,default=2)
 parser.add_argument("--subset",type=str,default="subject",help="subject or object or face")
 parser.add_argument("--size",type=int,default=256)
 parser.add_argument("--num_inference_steps",type=int,default=8)
 parser.add_argument("--weight",type=float,default=0.95)
-#TODO: add monkey patching
+#TODO: add use_mask patching
             
 #use persona dataset
 
@@ -71,7 +72,7 @@ def main(args):
     nb_concepts : int = args.nb_concepts
     parent_dir : str = args.parent_dir
     prefix : str = args.prefix
-    monkey  = args.monkey
+    use_mask  = args.use_mask
     step : int = args.step
     subset : str = args.subset
     size : int = args.size
@@ -116,7 +117,75 @@ def main(args):
     
     pipe=HookPipe(
         DiffusionPipeline.from_pretrained(args.checkpoint).to(device),args.layers,sae_dict,shape_dict,weight
-    )
+    ) 
+    #TODO: do this shit but just use hooks like a normal person
+    
+    block_dict={}
+    CACHED_ACTIVATIONS="cached_input"
+    CACHED_OUTPUTS="cached_outputs"
+    unet: UNet2DConditionModel =pipe.unet
+    mask_threshold=0.5
+    n_tokens=2
+    for layer,mod in unet.named_modules():
+        if layer in layers:
+
+            def hook_fn(module,input,output):
+                activations=getattr(module,CACHED_ACTIVATIONS,None)
+                if activations is None:
+                    return output
+                if type(output)==tuple:
+                    size=output[0].size()[-2:]
+                else:
+                    size=output.size()[-2:]
+                    
+                mask=torch.ones(size).unsqueeze(0).unsqueeze(0)
+                
+                if use_mask:
+                    to_k=getattr(module.attn2.to_k,CACHED_OUTPUTS)
+                    to_q=getattr(module.attn2.to_q,CACHED_OUTPUTS)
+                    attn_heads=module.attn2.heads
+                    
+                    inner_dim = key.shape[-1]
+                    head_dim = inner_dim // attn_heads
+
+                    query = query.view(batch_size, -1, attn_heads, head_dim).transpose(1, 2)
+                    key = key.view(batch_size, -1, attn_heads, head_dim).transpose(1, 2)
+                    
+                    attn_weight = query @ key.transpose(-2, -1)
+                    attn_weight = torch.softmax(attn_weight, dim=-1)
+
+
+                    mask=attn_weight.mean(dim=1).view(batch_size, *size,-1)[:,:,:,:n_tokens].mean(dim=-1) #shape B, h, w
+                    
+                    mask_min=mask.min()
+                    mask_max=mask.max()
+                    mask =(mask-mask_min)/(mask_max-mask_min+1e-6)
+                    
+                    mask[mask<mask_threshold]=0.
+                    mask=mask.unsqueeze(1)
+                
+                mask*=weight
+                
+                if type(output)==tuple:
+                    out=(1-mask)*output[0] + mask*activations
+                    if len(output)==0:
+                        return (out,)
+                    else:
+                        return (out, * output[1:])
+                else:
+                    return (1-mask)*output + mask*activations
+                
+            mod.register_forward_hook(hook_fn)
+            block_dict[layer]=mod
+                
+        elif layer.find("attn2.to")!=-1:
+            def hook_kqv(module,input,output):
+                setattr(module,CACHED_OUTPUTS,output)
+                return output
+            
+            mod.register_forward_hook(hook_kqv)
+                    
+                    
     
     clip_text_alignment=[]
     clip_image_alignment=[]
