@@ -118,8 +118,8 @@ class LatentLocalDataset(torch.utils.data.Dataset):
     
     def __getitem__(self, index):
         npz_dict=np.load(self.np_list[index])
-        inputs=npz_dict["cached_input."+self.model_layer]
-        outputs=npz_dict["cached_output."+self.model_layer]
+        inputs=npz_dict["input."+self.model_layer]
+        outputs=npz_dict["output."+self.model_layer]
         diff=outputs-inputs
         mask=np.sum(npz_dict["mask"],axis=0)
         
