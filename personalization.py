@@ -14,6 +14,7 @@ from experiment_helpers.gpu_details import print_details
 from experiment_helpers.saving_helpers import save_and_load_functions
 import torch
 from diffusers import UNet2DConditionModel
+from sdxl_pipe import HookedStableDiffusionXLWithUNetPipeline
 
 import time
 import torch.nn.functional as F
@@ -31,6 +32,7 @@ from data_helpers import PersonaDataset
 from hook_wrapper import HookPipe
 from diffusers import DiffusionPipeline
 from eval_pcs import CLIPEvaluator
+from diffusers.image_processor import VaeImageProcessor
 import wandb
 
 parser=default_parser()
@@ -46,6 +48,9 @@ parser.add_argument("--subset",type=str,default="subject",help="subject or objec
 parser.add_argument("--size",type=int,default=256)
 parser.add_argument("--num_inference_steps",type=int,default=8)
 parser.add_argument("--weight",type=float,default=0.95)
+parser.add_argument("--use_dino",action="store_true")
+parser.add_argument("--add_activation",action="store_true")
+parser.add_argument("--use_mean",action="store_true")
 #TODO: add use_mask patching
             
 #use persona dataset
@@ -78,6 +83,9 @@ def main(args):
     size : int = args.size
     num_inference_steps : int = args.num_inference_steps
     weight:float=args.weight
+    use_dino:bool=args.use_dino
+    add_activation:bool=args.add_activation
+    use_mean:bool=args.use_mean
     api,accelerator,device=repo_api_init(args)
     shape_dict=get_shape_dict(args.checkpoint,device,args.size)
     
@@ -115,13 +123,31 @@ def main(args):
     
     data=PersonaDataset(args.subset,(args.size,args.size),keyword=False)
     
-    pipe=HookPipe(
-        DiffusionPipeline.from_pretrained(args.checkpoint).to(device),args.layers,sae_dict,shape_dict,weight
-    ) 
+    if torch.cuda.is_available():
+
+        pipe = HookedStableDiffusionXLWithUNetPipeline.from_pretrained(
+            'stabilityai/sdxl-turbo',
+            #torch_dtype=dtype,
+            device_map="balanced",
+            #variant=("fp16" if dtype==torch.float16 else None)
+        )
+    else:
+         pipe = HookedStableDiffusionXLWithUNetPipeline.from_pretrained(
+            'stabilityai/sdxl-turbo',
+            #torch_dtype=dtype,
+            device_map="cpu",
+            #variant=("fp16" if dtype==torch.float16 else None)
+        )
     #TODO: do this shit but just use hooks like a normal person
     
+    vae=pipe.vae
+    text_encoder=pipe.text_encoder
+    unet=pipe.unet
+    scheduler=pipe.scheduler
+    image_processor=VaeImageProcessor()
+    
     block_dict={}
-    CACHED_ACTIVATIONS="cached_input"
+    CACHED_ACTIVATIONS="cached_activations"
     CACHED_OUTPUTS="cached_outputs"
     unet: UNet2DConditionModel =pipe.unet
     mask_threshold=0.5
@@ -132,17 +158,22 @@ def main(args):
             def hook_fn(module,input,output):
                 activations=getattr(module,CACHED_ACTIVATIONS,None)
                 if activations is None:
+                    if type(output)==tuple:
+                        act=output[0]
+                    else:
+                        act=output
+                    setattr(module,CACHED_ACTIVATIONS,act)
                     return output
                 if type(output)==tuple:
-                    size=output[0].size()[-2:]
+                    dims=output[0].size()[-2:]
                 else:
-                    size=output.size()[-2:]
+                    dims=output.size()[-2:]
                     
-                mask=torch.ones(size).unsqueeze(0).unsqueeze(0)
+                mask=torch.ones(dims).unsqueeze(0).unsqueeze(0)
                 
                 if use_mask:
-                    to_k=getattr(module.attn2.to_k,CACHED_OUTPUTS)
-                    to_q=getattr(module.attn2.to_q,CACHED_OUTPUTS)
+                    key=getattr(module.attn2.to_k,CACHED_OUTPUTS)
+                    query=getattr(module.attn2.to_q,CACHED_OUTPUTS)
                     attn_heads=module.attn2.heads
                     
                     inner_dim = key.shape[-1]
@@ -155,7 +186,7 @@ def main(args):
                     attn_weight = torch.softmax(attn_weight, dim=-1)
 
 
-                    mask=attn_weight.mean(dim=1).view(batch_size, *size,-1)[:,:,:,:n_tokens].mean(dim=-1) #shape B, h, w
+                    mask=attn_weight.mean(dim=1).view(batch_size, dims,-1)[:,:,:,1:1+n_tokens].mean(dim=-1) #shape B, h, w
                     
                     mask_min=mask.min()
                     mask_max=mask.max()
@@ -166,9 +197,10 @@ def main(args):
                 
                 mask*=weight
                 
+
                 if type(output)==tuple:
                     out=(1-mask)*output[0] + mask*activations
-                    if len(output)==0:
+                    if len(output)==1:
                         return (out,)
                     else:
                         return (out, * output[1:])
@@ -177,6 +209,10 @@ def main(args):
                 
             mod.register_forward_hook(hook_fn)
             block_dict[layer]=mod
+            if use_dino:
+                pass #gotta do some training and shit for this
+                
+                
                 
         elif layer.find("attn2.to")!=-1:
             def hook_kqv(module,input,output):
@@ -185,7 +221,7 @@ def main(args):
             
             mod.register_forward_hook(hook_kqv)
                     
-                    
+    
     
     clip_text_alignment=[]
     clip_image_alignment=[]
@@ -202,12 +238,67 @@ def main(args):
             prompt=row["text"]
             keyword=row["keyword"]
             
-            dino=get_last_hidden_states(image,dino_processor,dino_model)[:, 0, :].to(device)
-            sae_src_dict={
-                layer: sae_dict[layer].decode(ksae.encode(dino)[1]) for layer in dino_sae_dict
-            }
+            if use_dino:
+                dino=get_last_hidden_states(image,dino_processor,dino_model)[:, 0, :].to(device)
+                sae_src_dict={
+                    layer: sae_dict[layer].decode(dino_sae_dict[layer].encode(dino)[1]) for layer in dino_sae_dict
+                }
+            else:
+                for mod in block_dict.values():
+                    setattr(mod,CACHED_ACTIVATIONS,None) #reset the cached activations for each src image
+                image_pt=image_processor.preprocess(image,size,size)
+                latents=vae.config.scaling_factor*vae.encode(image_pt).latent_dist.sample()
+                if torch.isnan(latents).any():
+                    print("is nan latents ")
+                noise = torch.randn_like(latents)
                 
-            result=pipe.forward(sae_src_dict,prompt,num_inference_steps=args.num_inference_steps,height=256,width=256,return_dict=True,output_type="pil").images[0]
+                timesteps = torch.randint(
+                    0, 2, (latents.shape[0],), device=latents.device
+                )
+                timesteps = timesteps.long()
+
+                # Add noise to the model input according to the noise magnitude at each timestep
+                # (this is the forward diffusion process)
+                noisy_model_input = scheduler.add_noise(latents, noise, timesteps)
+                
+                (prompt_embeds,
+                negative_prompt_embeds,
+                pooled_prompt_embeds,
+                negative_pooled_prompt_embeds,
+                )=pipe.encode_prompt(prompt,prompt,device,1,False," "," ")
+                timestep_cond=None
+                add_text_embeds = pooled_prompt_embeds
+
+                if pipe.text_encoder_2 is None:
+                    text_encoder_projection_dim = int(pooled_prompt_embeds.shape[-1])
+                else:
+                    text_encoder_projection_dim = pipe.text_encoder_2.config.projection_dim
+
+                original_size = (size, size)
+                target_size =(size, size)
+                crops_coords_top_left=(0,0)
+                add_time_ids = pipe._get_add_time_ids(
+                    original_size,
+                    crops_coords_top_left,
+                    target_size,
+                    dtype=prompt_embeds.dtype,
+                    text_encoder_projection_dim=text_encoder_projection_dim,)
+
+                actual_batch_size = noisy_model_input.shape[0]
+                prompt_embeds = prompt_embeds.expand(actual_batch_size, -1, -1).contiguous()
+                add_text_embeds = add_text_embeds.expand(actual_batch_size, -1).contiguous()
+                add_time_ids = add_time_ids.expand(actual_batch_size, -1).contiguous()
+                added_cond_kwargs = {"text_embeds": add_text_embeds, "time_ids": add_time_ids}
+                        
+                unet.forward(
+                    noisy_model_input,timesteps,
+                                        encoder_hidden_states=prompt_embeds,
+                                        timestep_cond=timestep_cond,
+                                        added_cond_kwargs=added_cond_kwargs,
+                                        return_dict=False,
+                )[0]
+                
+            result=pipe.forward(prompt,num_inference_steps=num_inference_steps,height=size,width=size,return_dict=True,output_type="pil").images[0]
             
             accelerator.log({
                 f"img_{r}":wandb.Image(result),
