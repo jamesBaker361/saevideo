@@ -221,7 +221,7 @@ def main(args):
         )
         saes_dict[block] = sae.to(device, dtype=dtype)
         saes_dict[block].requires_grad_(False)
-        means_dict[block]=means.clone()
+        means_dict[block]=means.clone().to(device, dtype=dtype)
         means_dict[block].requires_grad_(False)
         print(block,shape_dict[block])
         print(means.size(), means.max(),means.min(), means.std(),means.mean())
@@ -508,7 +508,7 @@ def main(args):
     prompt_list=[p.format(unique_token,class_token) for p in prompt_list]
     
     
-    
+    pipe=pipe.to(device,dtype)
     for p,prompt in enumerate(prompt_list):
         gen_img:Image.Image=pipe(prompt,prompt,size,size,num_inference_steps).images[0]
         gen_img.save(os.path.join(args.save_dir,f"gen_{p}.jpg"))
