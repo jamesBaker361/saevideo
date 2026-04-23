@@ -151,6 +151,13 @@ def main(args):
     scheduler=pipe.scheduler
     image_processor=VaeImageProcessor()
     
+    def get_unet_device_dtype(unet):
+        param = next(unet.parameters())
+        return param.device, param.dtype
+    
+    device,dtype=get_unet_device_dtype(unet)
+    vae.to(device,dtype)
+    
     block_dict={}
     CACHED_ACTIVATIONS="cached_activations"
     CACHED_OUTPUTS="cached_outputs"
@@ -251,7 +258,7 @@ def main(args):
             else:
                 for mod in block_dict.values():
                     setattr(mod,CACHED_ACTIVATIONS,None) #reset the cached activations for each src image
-                image_pt=image_processor.preprocess(image,size,size)
+                image_pt=image_processor.preprocess(image,size,size).to(device,dtype)
                 latents=vae.config.scaling_factor*vae.encode(image_pt).latent_dist.sample()
                 if torch.isnan(latents).any():
                     print("is nan latents ")

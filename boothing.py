@@ -234,7 +234,7 @@ def main(args):
 
     device, dtype = get_unet_device_dtype(pipe.unet)
 
-    pipe.vae = AutoencoderKL.from_pretrained("madebyollin/sdxl-vae-fp16-fix", torch_dtype=torch.float16).to(device)
+    pipe.vae = AutoencoderKL.from_pretrained("madebyollin/sdxl-vae-fp16-fix", torch_dtype=dtype).to(device)
 
     vae=pipe.vae
     text_encoder=pipe.text_encoder
@@ -301,9 +301,7 @@ def main(args):
         attn_heads=unet_mod.transformer_blocks[0].attn2.heads
         
         def feature_injection(module, input, output, block=block, sae=sae,attn_heads=attn_heads):
-            
-            
-            
+
             #print("feature injection called with ")
             trainable_embedding=trainable_embedding_dict[block]
             if torch.isnan(trainable_embedding).any():
@@ -450,8 +448,6 @@ def main(args):
             add_text_embeds = add_text_embeds.expand(actual_batch_size, -1).contiguous()
             add_time_ids = add_time_ids.expand(actual_batch_size, -1).contiguous()
             added_cond_kwargs = {"text_embeds": add_text_embeds, "time_ids": add_time_ids}
-
-
 
             with accelerator.accumulate(params):
                 with accelerator.autocast(): #possibly THIS is bad???
