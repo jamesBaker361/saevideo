@@ -132,8 +132,8 @@ def main(args):
 
         pipe = HookedStableDiffusionXLWithUNetPipeline.from_pretrained(
             'stabilityai/sdxl-turbo',
-            #torch_dtype=dtype,
-            device_map="balanced",
+            torch_dtype=torch.float16,
+           # device_map="balanced",
             #variant=("fp16" if dtype==torch.float16 else None)
         )
     else:
