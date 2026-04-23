@@ -133,9 +133,11 @@ def main(args):
         pipe = HookedStableDiffusionXLWithUNetPipeline.from_pretrained(
             'stabilityai/sdxl-turbo',
             torch_dtype=torch.float16,
+            
            # device_map="balanced",
             #variant=("fp16" if dtype==torch.float16 else None)
         )
+        pipe=pipe.to("cuda")
     else:
          pipe = HookedStableDiffusionXLWithUNetPipeline.from_pretrained(
             'stabilityai/sdxl-turbo',
@@ -156,7 +158,7 @@ def main(args):
         return param.device, param.dtype
     
     device,dtype=get_unet_device_dtype(unet)
-    vae.to(device,dtype)
+    vae=vae.to(device,dtype)
     
     block_dict={}
     CACHED_ACTIVATIONS="cached_activations"
