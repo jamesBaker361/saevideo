@@ -302,12 +302,12 @@ def main(args):
                 prompt_embeds = prompt_embeds.expand(actual_batch_size, -1, -1).contiguous()
                 add_text_embeds = add_text_embeds.expand(actual_batch_size, -1).contiguous()
                 add_time_ids = add_time_ids.expand(actual_batch_size, -1).contiguous()
-                added_cond_kwargs = {"text_embeds": add_text_embeds, "time_ids": add_time_ids}
+                added_cond_kwargs = {"text_embeds": add_text_embeds.to(device,dtype), "time_ids": add_time_ids.to(device,dtype)}
                         
                 unet.forward(
                     noisy_model_input,timesteps,
-                                        encoder_hidden_states=prompt_embeds,
-                                        timestep_cond=timestep_cond,
+                                        encoder_hidden_states=prompt_embeds.to(device,dtype),
+                                        timestep_cond=timestep_cond.to(device,dtype),
                                         added_cond_kwargs=added_cond_kwargs,
                                         return_dict=False,
                 )[0]
