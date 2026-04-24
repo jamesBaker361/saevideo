@@ -307,7 +307,7 @@ def main(args):
                 unet.forward(
                     noisy_model_input,timesteps,
                                         encoder_hidden_states=prompt_embeds.to(device,dtype),
-                                        timestep_cond=timestep_cond.to(device,dtype),
+                                        timestep_cond=timestep_cond,
                                         added_cond_kwargs=added_cond_kwargs,
                                         return_dict=False,
                 )[0]
