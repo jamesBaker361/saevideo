@@ -25,7 +25,7 @@ def main(args):
     dataset_name:str=args.dataset_name
     dest_dir:str=args.dest_dir
 
-    hf_data=datasets.load_dataset(dataset_name,split="train") #ILSVRC/imagenet-1k or huggan/wikiart or ares1123/celebrity_dataset or huggan/pokemon or HuggingFaceM4/NoCaps or biglam/european_art or rafaelpadilla/coco2017
+    hf_data=datasets.load_dataset(dataset_name,split="train") #ILSVRC/imagenet-1k or huggan/wikiart or ares1123/celebrity_dataset or huggan/pokemon or HuggingFaceM4/NoCaps or biglam/european_art or rafaelpadilla/coco2017 jlbaker361/league-splash-tagged jlbaker361/mtg
     hf_data=hf_data.cast_column("image",datasets.Image())
     os.makedirs(dest_dir,exist_ok=True)
     errors=0

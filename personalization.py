@@ -13,7 +13,7 @@ import argparse
 from experiment_helpers.gpu_details import print_details
 from experiment_helpers.saving_helpers import save_and_load_functions
 import torch
-from diffusers import UNet2DConditionModel
+from diffusers import UNet2DConditionModel,AutoencoderKL
 from sdxl_pipe import HookedStableDiffusionXLWithUNetPipeline
 
 import time
@@ -147,6 +147,8 @@ def main(args):
         )
     #TODO: do this shit but just use hooks like a normal person
     
+    device, dtype = get_unet_device_dtype(pipe.unet)
+    pipe.vae=AutoencoderKL.from_pretrained("madebyollin/sdxl-vae-fp16-fix", torch_dtype=torch.float16).to(device)
     vae=pipe.vae
     text_encoder=pipe.text_encoder
     unet=pipe.unet
@@ -312,7 +314,7 @@ def main(args):
                                         return_dict=False,
                 )[0]
                 
-            result=pipe.forward(prompt,num_inference_steps=num_inference_steps,height=size,width=size,return_dict=True,output_type="pil").images[0]
+            result=pipe(prompt,num_inference_steps=num_inference_steps,height=size,width=size,return_dict=True,output_type="pil").images[0]
             
             accelerator.log({
                 f"img_{r}":wandb.Image(result),
