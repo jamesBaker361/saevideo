@@ -147,6 +147,10 @@ def main(args):
         )
     #TODO: do this shit but just use hooks like a normal person
     
+    def get_unet_device_dtype(unet):
+        param = next(unet.parameters())
+        return param.device, param.dtype
+
     device, dtype = get_unet_device_dtype(pipe.unet)
     pipe.vae=AutoencoderKL.from_pretrained("madebyollin/sdxl-vae-fp16-fix", torch_dtype=torch.float16).to(device)
     vae=pipe.vae
@@ -154,11 +158,7 @@ def main(args):
     unet=pipe.unet
     scheduler=pipe.scheduler
     image_processor=VaeImageProcessor()
-    
-    def get_unet_device_dtype(unet):
-        param = next(unet.parameters())
-        return param.device, param.dtype
-    
+
     device,dtype=get_unet_device_dtype(unet)
     vae=vae.to(device,dtype)
     
