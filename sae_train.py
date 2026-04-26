@@ -121,7 +121,12 @@ class LatentLocalDataset(torch.utils.data.Dataset):
         inputs=npz_dict["input."+self.model_layer]
         outputs=npz_dict["output."+self.model_layer]
         diff=outputs-inputs
-        mask=np.sum(npz_dict["mask."+self.model_layer+".transformer_blocks.0.attn2.processor"],axis=0)
+        try:
+            mask=np.sum(npz_dict["mask."+self.model_layer+".transformer_blocks.0.attn2.processor"],axis=0)
+        except KeyError as e:
+            print(e)
+            print(self.np_list[index])
+            raise e
         
         valid = (mask != 0)
         diff = diff[:, :, valid]
