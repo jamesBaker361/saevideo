@@ -225,8 +225,10 @@ def main(args):
         means_dict[block].requires_grad_(False)
         print(block,shape_dict[block])
         print(means.size(), means.max(),means.min(), means.std(),means.mean())
-        trainable_embedding_dict[block]=means.to(device, dtype=dtype)
-        means.requires_grad_(True)
+        trainable_embedding_dict[block]=trainable_embedding_dict[block] = torch.nn.Parameter(
+            means.clone().to(device, dtype=dtype)
+        )
+        trainable_embedding_dict[block].requires_grad_(True)
         
     def get_unet_device_dtype(unet):
         param = next(unet.parameters())
@@ -391,6 +393,7 @@ def main(args):
     
     
     params=[v for v in trainable_embedding_dict.values()]
+    params_module = torch.nn.ParameterList(params)
     optimizer_class = torch.optim.AdamW
     optimizer=optimizer_class(params,lr)
     optimizer.zero_grad()
@@ -449,7 +452,7 @@ def main(args):
             add_time_ids = add_time_ids.expand(actual_batch_size, -1).contiguous()
             added_cond_kwargs = {"text_embeds": add_text_embeds, "time_ids": add_time_ids}
 
-            with accelerator.accumulate(params):
+            with accelerator.accumulate(params_module):
                 with accelerator.autocast(): #possibly THIS is bad???
                     
                     model_pred = unet.forward(
