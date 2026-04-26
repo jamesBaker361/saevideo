@@ -188,6 +188,10 @@ def main(args):
         for k,row in enumerate(data):
             if k<count:
                 continue
+            
+            new_path=os.path.join(args.save_dir,f"{k}.npz")
+            if os.path.exists(new_path):
+                continue
             if k==args.limit:
                 break
             reset_monkey(pipe)
@@ -225,7 +229,7 @@ def main(args):
                     mask=mask.cpu().detach().numpy()
                     activation_dict[f"mask.{name}"]=mask
                     #setattr(processor,"kv_ip",None)
-            np.savez(os.path.join(args.save_dir,f"{k}.npz"),**activation_dict)
+            np.savez(new_path,**activation_dict)
             initial_image.save(os.path.join(args.save_dir,f"{k}.jpg"))
             if k==count:
                 print("saving to ",os.path.join(args.save_dir,f"{k}.npz"),os.path.join(args.save_dir,f"{k}.jpg"))
