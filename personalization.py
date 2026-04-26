@@ -212,8 +212,8 @@ def main(args):
                     mask=mask.unsqueeze(1)
                 
                 mask*=weight
+                mask=mask.to(device,dtype)
                 
-
                 if type(output)==tuple:
                     out=(1-mask)*output[0] + mask*activations
                     if len(output)==1:
