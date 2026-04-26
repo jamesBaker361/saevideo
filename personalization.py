@@ -180,6 +180,8 @@ def main(args):
                         act=output
                     setattr(module,CACHED_ACTIVATIONS,act)
                     return output
+                else:
+                    activations=activations.to(device,dtype)
                 if type(output)==tuple:
                     dims=output[0].size()[-2:]
                 else:
