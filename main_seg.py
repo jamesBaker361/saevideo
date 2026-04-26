@@ -189,11 +189,28 @@ def main(args):
             if k<count:
                 continue
             
-            new_path=os.path.join(args.save_dir,f"{k}.npz")
-            if os.path.exists(new_path):
-                continue
             if k==args.limit:
                 break
+            
+            new_path=os.path.join(args.save_dir,f"{k}.npz")
+            if os.path.exists(new_path):
+                valid=True
+                npz_dict=np.load(new_path,allow_pickle=True)
+                for block,module in block_dict.items():
+                    for key in ["input","output"]:
+                        npz_key=f"{key}.{block}"
+                        if npz_key not in npz_dict:
+                            valid=False
+                            break
+                for name,processor in pipe.unet.attn_processors.items():
+                    if hasattr(processor,"kv_ip"):
+                        npz_key=f"mask.{name}"
+                        if npz_key not in npz_dict:
+                            valid=False
+                            break
+                if valid:    
+                    continue
+            
             reset_monkey(pipe)
             if "image" in row:
                 ip_adapter_image=row["image"]
