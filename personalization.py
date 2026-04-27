@@ -210,7 +210,7 @@ def main(args):
                     mask_max=mask.max()
                     mask =(mask-mask_min)/(mask_max-mask_min+1e-6)
                     
-                    mask[mask<mask_threshold]=0.
+                    #mask[mask<mask_threshold]=0.
                     mask=mask.unsqueeze(1)
                 
                 mask*=weight
