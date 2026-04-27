@@ -34,7 +34,7 @@ QUANTIZED="quantized"
 parser.add_argument("--nb_concepts",type=int,default=10000,help="n concepts for SAE")
 parser.add_argument("--sae_model",type=str,default=KSAE)
 parser.add_argument("--model_layer",type=str,default="up_blocks.1.attentions.0")
-parser.add_argument("--src_dir_list",nargs="*",default=["seg_ip_laion"])
+parser.add_argument("--src_dir_list",nargs="*",default=["seg_ip_jlbaker361_mtg"])
 parser.add_argument("--use_dino",action="store_true",help="whether to use dino embeddings too")
 parser.add_argument("--use_mask",action="store_true",help="whether to mask out irrelevant tensors")
 parser.add_argument("--flatten",action="store_true",help="whether to do the whole image at once or do channel by channel")
