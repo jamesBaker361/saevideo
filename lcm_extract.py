@@ -141,53 +141,53 @@ def main(args):
                 break
             
             image=row["jpg"]
-            annotations=row["json"]["vlm_caption"].lower()
+            prompt=row["json"]["vlm_caption"].lower()
             for filler in ["this photo shows","in this image",
                            "here is a","there is","this image has",
                            "this is a","this image shows","we see a",
                            "this picture shows","the image displays",]:
-                annotations=annotations.replace(filler,"")
+                prompt=prompt.replace(filler,"")
             
             npz_dict={}
             
             image_pt=image_processor.preprocess(image).to(device=accelerator.device)
             latents=vae.encode(image_pt).latent_dist.sample()
             
-            for p,prompt in enumerate(annotations[:args.prompt_per_image]):
-                new_image=pipe(prompt,size,size,num_inference_steps=num_inference_steps).images[0]
-                for key,value in block_dict.items():
-                    for attr in ["input","output"]:
-                        npz_dict[f"synthetic.{p}.{key}.{attr}"]=getattr(value,f"cached_{attr}").cpu().detach().numpy()
-                image_path=os.path.join(args.save_dir,f"{k}.{p}.jpg")
-                new_image.save(image_path)
-                
-                prompt_embeds, _ = pipe.encode_prompt(
-                    prompt,
-                    accelerator.device,
-                    1,
-                    pipe.do_classifier_free_guidance,
-                    negative_prompt=None,
-                    prompt_embeds=None,
-                    negative_prompt_embeds=None,
-                )
-                
-                timesteps = torch.randint(
-                    0, 5, (latents.shape[0],), device=latents.device
-                )
-                timesteps = timesteps.long()
-                
-                noise = torch.randn_like(latents)
-                noisy_model_input = scheduler.add_noise(latents, noise, timesteps)
-                
-                model_pred = unet.forward(
-                    noisy_model_input,
-                    timesteps,
-                    encoder_hidden_states=prompt_embeds,
-                    return_dict=False,)[0]
-                
-                for key,value in block_dict.items():
-                    for attr in ["input","output"]:
-                        npz_dict[f"{p}.{key}.{attr}"]=getattr(value,f"cached_{attr}").cpu().detach().numpy()
+            #for p,prompt in enumerate(prompt[:args.prompt_per_image]):
+            new_image=pipe(prompt,size,size,num_inference_steps=num_inference_steps).images[0]
+            for key,value in block_dict.items():
+                for attr in ["input","output"]:
+                    npz_dict[f"synthetic.{key}.{attr}"]=getattr(value,f"cached_{attr}").cpu().detach().numpy()
+            image_path=os.path.join(args.save_dir,f"{k}.jpg")
+            new_image.save(image_path)
+            
+            prompt_embeds, _ = pipe.encode_prompt(
+                prompt,
+                accelerator.device,
+                1,
+                pipe.do_classifier_free_guidance,
+                negative_prompt=None,
+                prompt_embeds=None,
+                negative_prompt_embeds=None,
+            )
+            
+            timesteps = torch.randint(
+                0, 5, (latents.shape[0],), device=latents.device
+            )
+            timesteps = timesteps.long()
+            
+            noise = torch.randn_like(latents)
+            noisy_model_input = scheduler.add_noise(latents, noise, timesteps)
+            
+            model_pred = unet.forward(
+                noisy_model_input,
+                timesteps,
+                encoder_hidden_states=prompt_embeds,
+                return_dict=False,)[0]
+            
+            for key,value in block_dict.items():
+                for attr in ["input","output"]:
+                    npz_dict[f"{key}.{attr}"]=getattr(value,f"cached_{attr}").cpu().detach().numpy()
 
             np.savez(os.path.join(args.save_dir, f"{k}.npz"), **npz_dict)
 
