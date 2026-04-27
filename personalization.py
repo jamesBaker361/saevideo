@@ -30,7 +30,7 @@ from dino_extract import dino_model,dino_processor,get_last_hidden_states
 from PIL import Image
 from data_helpers import PersonaDataset
 from hook_wrapper import HookPipe
-from diffusers import DiffusionPipeline
+from diffusers import DiffusionPipeline, DDPMScheduler
 from eval_pcs import CLIPEvaluator
 from diffusers.image_processor import VaeImageProcessor
 import wandb
@@ -156,7 +156,7 @@ def main(args):
     vae=pipe.vae
     text_encoder=pipe.text_encoder
     unet=pipe.unet
-    scheduler=pipe.scheduler
+    scheduler=DDPMScheduler.from_config(pipe.scheduler.config)
     image_processor=VaeImageProcessor()
 
     device,dtype=get_unet_device_dtype(unet)
