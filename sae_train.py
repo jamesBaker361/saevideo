@@ -131,6 +131,8 @@ class LatentLocalDataset(torch.utils.data.Dataset):
         valid = (mask != 0)
         diff = diff[:, :, valid]
         
+        print(diff.size())
+        
         diff=torch.tensor(diff).permute(0,2,1).flatten(0,1) #b,c,hw -> bhw,c
         dino=torch.tensor(npz_dict["dino"]).unsqueeze(0).expand(diff.size()[0],-1)
         
