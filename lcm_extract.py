@@ -16,9 +16,6 @@ from compatible_pipelines import CompatibleLatentConsistencyModelPipeline
 from diffusers.image_processor import VaeImageProcessor
 from diffusers import AutoencoderKL
 
-
-#from controlnet_aux import HEDdetector, MidasDetector, MLSDdetector, OpenposeDetector, PidiNetDetector, NormalBaeDetector, LineartDetector, LineartAnimeDetector, CannyDetector, ContentShuffleDetector, ZoeDetector, MediapipeFaceDetector, SamDetector, LeresDetector, DWposeDetector
-
 import datasets
 from datasets import Dataset
 import numpy as np
@@ -30,7 +27,8 @@ parser.add_argument("--project_name",type=str,default="seg-ip-sae")
 parser.add_argument("--load_hf",action="store_true",help="whether to load a special pretrained model")
 parser.add_argument("--embedding",type=str, help="ignore unless load from hf; its the embedding type for embedding helpers")
 parser.add_argument("--pretrained_model_path",type=str,default="")
-parser.add_argument("--src_dataset",type=str, default="HuggingFaceM4/NoCaps")
+parser.add_argument("--src_dataset",type=str, default="pixelprose/pixelprose-shards")
+parser.add_argument("--subset",type=str,default="redcaps")
 parser.add_argument("--use_test_split",action="store_true", help="only true for league dataset")
 parser.add_argument("--initial_steps",type=int,default=4,help="how many steps for the initial inference")
 parser.add_argument("--initial_mask_step_list",nargs="*",help="steps to generate mask from",type=int,default=[1,2])
@@ -53,7 +51,8 @@ parser.add_argument("--prompt_per_image",type=int,default=2)
 parser.add_argument("--size",type=int,default=512)
 parser.add_argument("--num_inference_steps",type=int,default=8)
 
-#use text prompts to generate images- or use real images- use both!
+#use text prompts to generate images- and use real images, and then use kv stuff to map text to locations and use that to find which text tokens 
+# are commonly associated with features
 
 def main(args):
     size:int=args.size
@@ -124,12 +123,8 @@ def main(args):
             print('\t',key)
             
         #if args.hf_data: #Do this 
-        try:
-            data=datasets.load_dataset(args.src_dataset)
-        except:
-            data=datasets.load_dataset(args.src_dataset,download_mode="force_redownload")
-        data=data["train"]
-        data=data.cast_column("image",datasets.Image())
+        data=datasets.load_dataset(args.src_dataset,args.subset,split="train")
+        data=data.cast_column("jpg",datasets.Image())
             #were doing hf data because we need captions!!! who has captions btw: https://huggingface.co/datasets/HuggingFaceM4/NoCaps
             #data=[{"image":Image.open(os.path.join(args.src_dir,file)) }for file in path_list]
                 
@@ -145,8 +140,13 @@ def main(args):
             if k==args.limit:
                 break
             
-            image=row["image"]
-            annotations=row["annotations_captions"][0]
+            image=row["jpg"]
+            annotations=row["json"]["vlm_caption"].lower()
+            for filler in ["this photo shows","in this image",
+                           "here is a","there is","this image has",
+                           "this is a","this image shows","we see a",
+                           "this picture shows","the image displays",]:
+                annotations=annotations.replace(filler,"")
             
             npz_dict={}
             
