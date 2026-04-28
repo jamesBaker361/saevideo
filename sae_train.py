@@ -123,6 +123,9 @@ class LatentLocalDataset(torch.utils.data.Dataset):
         diff=outputs-inputs
         try:
             mask=np.sum(npz_dict["mask."+self.model_layer+".transformer_blocks.0.attn2.processor"],axis=0)
+            mask = (mask - mask.min()) / (mask.max() - mask.min() + 1e-8)
+            mask[mask < 0.5] = 0.
+            mask[mask>1e-4]=1.
         except KeyError as e:
             print(e)
             print(self.np_list[index])
@@ -131,9 +134,9 @@ class LatentLocalDataset(torch.utils.data.Dataset):
         valid = (mask != 0)
         diff = diff[:, :, valid]
         
-        print(diff.size())
+        print(torch.tensor(diff).size())
         
-        diff=torch.tensor(diff).permute(0,2,1).flatten(0,1) #b,c,hw -> bhw,c
+        diff=torch.tensor(diff).permute(0,3,2,1).flatten(0,1,2) #b,c,h,w -> bhw,c
         dino=torch.tensor(npz_dict["dino"]).unsqueeze(0).expand(diff.size()[0],-1)
         
         return {
