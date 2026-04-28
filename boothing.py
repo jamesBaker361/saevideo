@@ -253,7 +253,7 @@ def main(args):
         trainable_embedding=trainable_embedding_dict[block]
         sae=saes_dict[block]
         
-        recons=trainable_embedding @ sae.decoder.weight.T
+        recons=(trainable_embedding.float() @ sae.decoder.weight.float().T).to(dtype)
         
         if torch.isnan(recons).any():
             print(block, " initial recons thing is nan or something ")
@@ -312,9 +312,9 @@ def main(args):
             mean=means_dict[block]
             if use_mean:
                 recons=trainable_embedding-mean
-                recons=recons @ sae.decoder.weight.T
+                recons=(recons.float() @ sae.decoder.weight.float().T).to(dtype)
             else:
-                recons = trainable_embedding @ sae.decoder.weight.T
+                recons = (trainable_embedding.float() @ sae.decoder.weight.float().T).to(dtype)
                 
             if torch.isnan(recons).any():
                 print("recons nan")
@@ -349,7 +349,7 @@ def main(args):
                 
                 mask_min=mask.min()
                 mask_max=mask.max()
-                mask =(mask-mask_min)/(mask_max-mask_min+1e-6)
+                mask =(mask-mask_min)/(mask_max-mask_min+1e-4)
                 
                 mask[mask<mask_threshold]=0.
                 mask=mask.unsqueeze(1)
