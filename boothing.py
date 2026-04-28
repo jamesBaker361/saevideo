@@ -474,6 +474,7 @@ def main(args):
                         accelerator.clip_grad_norm_(params,1.0)
                     optimizer.step()
                     optimizer.zero_grad()
+                    print("step!")
             loss_list.append(loss.cpu().detach().numpy())
             
         accelerator.log({
