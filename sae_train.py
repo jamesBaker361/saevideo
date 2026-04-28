@@ -136,6 +136,9 @@ class LatentLocalDataset(torch.utils.data.Dataset):
         
         diff=torch.tensor(diff).permute(0,3,2,1).flatten(0,2) #b,c,h,w -> bhw,c
         dino=torch.tensor(npz_dict["dino"])
+        print(dino.size())
+        print(dino[:,0,:].size())
+        print(dino[:,0,:].view(-1,384).size())
         dino=dino[:,0,:].view(-1,384).expand(diff.size(),-1)
         
         return {
