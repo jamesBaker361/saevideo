@@ -5,6 +5,7 @@ from experiment_helpers.loop_decorator import optimization_loop
 import time
 import os
 from experiment_helpers.data_helpers import split_data
+from torch.utils.data import Dataset, DataLoader,random_split
 from experiment_helpers.saving_helpers import save_and_load_functions
 from experiment_helpers.argprint import print_args
 from datasets import load_dataset
@@ -137,8 +138,8 @@ class LatentLocalDataset(torch.utils.data.Dataset):
         diff=torch.tensor(diff).permute(0,3,2,1).flatten(0,2) #b,c,h,w -> bhw,c
         dino=torch.tensor(npz_dict["dino"])
         print(dino.size())
-        print(dino[0,0,:].size())
-        dino=dino[0,0,:].expand(diff.size())
+        print(dino[:,0,:].size())
+        dino=dino[:,0,:].expand(diff.size()[0],384)
         
         return {
             "act":diff,
@@ -202,7 +203,7 @@ def main(args):
                                 args.model_layer,
                                 use_mask)
     
-    train_loader,test_loader,val_loader=split_data(dataset,0.95,batch_size)
+    train_loader,test_loader,val_loader=split_data(dataset,[0.9,0.05,0.05])
     
     for batch in train_loader:
         break
