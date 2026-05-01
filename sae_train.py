@@ -120,7 +120,9 @@ class LatentLocalDataset(torch.utils.data.Dataset):
     def __getitem__(self, index):
         npz_dict=np.load(self.np_list[index])
         inputs=npz_dict["input."+self.model_layer]
+        print("inputs shape",inputs.shape)
         outputs=npz_dict["output."+self.model_layer]
+        print("outputs shape",outputs.shape)
         diff=outputs-inputs
         try:
             mask=np.sum(npz_dict["mask."+self.model_layer+".transformer_blocks.0.attn2.processor"],axis=0)
@@ -133,9 +135,11 @@ class LatentLocalDataset(torch.utils.data.Dataset):
             raise e
         
         valid = (mask != 0)
+        print("valid shape ",valid.shape)
         diff = diff[:, :, valid]
+        print("diff[:, :, valid] shape ",diff.shape)
         
-        diff=torch.tensor(diff).permute(0,3,2,1).flatten(0,2) #b,c,h,w -> bhw,c
+        diff=torch.tensor(diff).permute(0,2,1).flatten(0,1) #b,c,h,w -> bhw,c
         dino=torch.tensor(npz_dict["dino"])
         dino=dino[:,0,:].expand(diff.size()[0],384)
         
