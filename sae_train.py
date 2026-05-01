@@ -203,7 +203,7 @@ def main(args):
                                 args.model_layer,
                                 use_mask)
     
-    train_loader,test_loader,val_loader=split_data(dataset,[0.9,0.05,0.05])
+    train_loader,test_loader,val_loader=random_split(dataset,[0.9,0.05,0.05])
     
     for batch in train_loader:
         break
@@ -231,7 +231,6 @@ def main(args):
         model_dict["dino_sae"]=dino_sae_model
         
     act=batch["act"]
-    act=act.flatten(0,1) #(b,hw,c) -> (bhw,c)
     with accelerator.autocast():
         z_pre, z, x_hat=sae_model(act.to(device))
     dead_tracker = DeadCodeTracker(z.size()[1], device)
