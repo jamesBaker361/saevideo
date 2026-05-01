@@ -330,7 +330,7 @@ def main(args):
             
         
         activations=batch["act"].to(device)
-        activations=activations.flatten(0,1)
+        #activations=activations.flatten(0,1)
             
         if args.use_dino:
             dino=batch["dino"].to(device)
