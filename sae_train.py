@@ -126,6 +126,7 @@ class LatentLocalDataset(torch.utils.data.Dataset):
         diff=outputs-inputs
         try:
             mask=np.sum(npz_dict["mask."+self.model_layer+".transformer_blocks.0.attn2.processor"],axis=0)
+            print("mask shape ",mask.shape)
             mask = (mask - mask.min()) / (mask.max() - mask.min() + 1e-8)
             mask[mask < 0.5] = 0.
             mask[mask>1e-4]=1.
