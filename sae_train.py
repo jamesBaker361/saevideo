@@ -404,6 +404,8 @@ def main(args):
         start=time.time()
         big_logging_dict=defaultdict(list)
         for b, batch in enumerate(train_loader):
+            if b==limit:
+                break
             logging_dict=batch_function(batch,True,b==0 and e==start_epoch)
             for k,v in logging_dict.items():
                 big_logging_dict[k].append(v)
