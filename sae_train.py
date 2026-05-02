@@ -224,7 +224,7 @@ def main(args):
     if sae_model_class==TopKSAE:
         k_step=(initial_k-final_k)/(epochs//2)
         print(f"start {initial_k*nb_concepts} end: {final_k*nb_concepts} step {nb_concepts*k_step} ")
-        sae_model.top_k=initial_k*nb_concepts
+        sae_model.top_k=int(initial_k*nb_concepts)
         
     
     params=[p for p in sae_model.parameters()]
@@ -414,7 +414,7 @@ def main(args):
         for k,v in big_logging_dict.items():
             print(k,v)
         if istopk:
-            sae_model.top_k=max(sae_model.top_k-k_step*nb_concepts,final_k*nb_concepts)
+            sae_model.top_k=int(max(sae_model.top_k-k_step*nb_concepts,final_k*nb_concepts))
         val_logging_dict=defaultdict(list)
         save(e)
         if e%10==0:
