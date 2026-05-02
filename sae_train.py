@@ -423,6 +423,7 @@ def main(args):
                 for k,v in logging_dict.items():
                     val_logging_dict[k].append(v)
     big_logging_dict=defaultdict(list)
+    start=time.time()
     for b, batch in enumerate(test_loader):
         logging_dict=batch_function(batch,False,False)
         for k,v in logging_dict.items():
