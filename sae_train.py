@@ -121,9 +121,9 @@ class LatentLocalDataset(torch.utils.data.Dataset):
     def __getitem__(self, index):
         npz_dict=np.load(self.np_list[index])
         inputs=npz_dict["input."+self.model_layer]
-        print("inputs shape",inputs.shape)
+        #print("inputs shape",inputs.shape)
         outputs=npz_dict["output."+self.model_layer]
-        print("outputs shape",outputs.shape)
+        #print("outputs shape",outputs.shape)
         diff=outputs-inputs
         try:
             mask=npz_dict["mask."+self.model_layer+".transformer_blocks.0.attn2.processor"]
