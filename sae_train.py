@@ -255,7 +255,6 @@ def main(args):
     else:
         optimizer,sae_model,train_loader,test_loader,val_loader = accelerator.prepare(optimizer,sae_model,train_loader,test_loader,val_loader)
 
-    save_subdir=os.path.join("sae_model")
     os.makedirs(save_subdir,exist_ok=True)
     save_subdir=os.path.join("sae_model",args.prefix)
     os.makedirs(save_subdir,exist_ok=True)
@@ -302,8 +301,9 @@ def main(args):
             # load config
             with open(config_path, "r") as file:
                 config = json.load(file)
-
+            print("loaded")
             return config.get("epoch", 1)
+
         except:
             return 1
         
@@ -399,7 +399,7 @@ def main(args):
                 
         return logging_dict
         
-        
+    print("starting at epoch ",start_epoch)
     for e in tqdm(range(start_epoch,1+epochs)):
         start=time.time()
         big_logging_dict=defaultdict(list)
@@ -432,7 +432,7 @@ def main(args):
     print(f" testing elapsed {end-start}")
     for k,v in big_logging_dict.items():
         print(k,v)
-                
+    save(e+1)
                 
     
     #testing !
