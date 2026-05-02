@@ -14,10 +14,11 @@ from overcomplete.sae.trackers import DeadCodeTracker
 import numpy as np
 import torch.nn.functional as F
 from unet_autopsy import get_shape_dict
-from collections import defaultdict
 import json
 from typing import Optional
 from torchvision.transforms import Resize
+from tqdm import tqdm
+from collections import defaultdict
 
 #https://github.com/KempnerInstitute/overcomplete
 
@@ -47,8 +48,8 @@ parser.add_argument("--threshold",type=float,default=0.5)
 parser.add_argument("--checkpoint",type=str,default="SimianLuo/LCM_Dreamshaper_v7",help=" dreamshaper ")
 parser.add_argument("--step",type=int,default=0)
 parser.add_argument("--prefix",type=str,default="seg_ip_test")
-
-import torch
+parser.add_argument("--initial_k",type=float,default=0.5)
+parser.add_argument("--final_k",type=float,default=0.0025)
 
 def feature_similarity(W_old, W_new):
     # normalize features
@@ -180,6 +181,8 @@ def main(args):
     checkpoint : str = args.checkpoint
     step : int = args.step
     prefix : str = args.prefix
+    initial_k:float=args.initial_k
+    final_k:float=args.final_k
     
     sae_model_class={
         KSAE:TopKSAE,
@@ -218,6 +221,10 @@ def main(args):
     (b,c,h,w)=shape_dict[args.model_layer]
     
     sae_model:SAE=sae_model_class(c,args.nb_concepts,device=device)
+    if sae_model_class==TopKSAE:
+        k_step=(initial_k-final_k)/(epochs//2)
+        print(f"start {initial_k*nb_concepts} end: {final_k*nb_concepts} step {nb_concepts*k_step} ")
+        sae_model.top_k=initial_k*nb_concepts
         
     
     params=[p for p in sae_model.parameters()]
@@ -304,26 +311,23 @@ def main(args):
     start_epoch=load(False)
     
     old_weights=None
+    
+    
+        
 
-    @optimization_loop(
-        accelerator,train_loader,args.epochs,args.val_interval,args.limit,
-        val_loader,test_loader,save,start_epoch
-    )
-    def batch_function(batch,training,helpful_dict):
+    def batch_function(batch,training,verbose:bool):
         nonlocal old_weights
         
-        if helpful_dict["b"] == 0:
+        if verbose:
             new_weights = sae_model.get_dictionary().detach()
 
             if old_weights is not None:
                 old_idx, new_idx, matched_sim = track_features(old_weights, new_weights)
 
-                print(
-                    "epoch:",
-                    helpful_dict["epochs"],
-                    "stability:",
-                    matched_sim.mean().item()
-                )
+                if verbose:
+                    print(
+                        matched_sim.mean().item()
+                    )
                 accelerator.log({"sim":matched_sim.mean().item()})
 
             old_weights = new_weights.clone()
@@ -333,11 +337,15 @@ def main(args):
             
         
         activations=batch["act"].to(device)
+        if verbose:
+            print('activations.size()',activations.size())
         #activations=activations.flatten(0,1)
-            
+        logging_dict={} 
         if args.use_dino:
             dino=batch["dino"].to(device)
             dino=dino.flatten(0,1)
+            if verbose:
+                print("dino ",dino.size())
         if training:
             
             models=[sae_model]
@@ -349,12 +357,13 @@ def main(args):
                     z_pre, z, x_hat=sae_model(activations)
                     
                     bhw=z.size()[0]
+                    if verbose:
+                        print("z ",z.size())
                     
                     loss=criterion(activations, x_hat, z_pre, z, sae_model.get_dictionary())
                     
-                    logging_dict={
-                        "loss":loss.cpu().detach().numpy()
-                    }
+                    logging_dict["loss"]=loss.cpu().detach().numpy()
+
                     
                     if args.use_dino: 
                         z_pre_dino, z_dino, x_hat_dino=dino_sae_model(dino)
@@ -367,7 +376,7 @@ def main(args):
                         logging_dict["differences"]=difference.cpu().detach().numpy()
                         loss+=args.dino_coefficient*difference+dino_loss
                         
-                    accelerator.log(logging_dict)
+                    #accelerator.log(logging_dict)
                     accelerator.backward(loss)
                     optimizer.step()
                     dead_tracker.update(z)
@@ -386,14 +395,42 @@ def main(args):
                     
                     loss+=difference+dino_loss
                     
-                    accelerator.log({
-                            "dino_loss":dino_loss.cpu().detach().numpy()
-                        })
+                    logging_dict["dino_loss"]=dino_loss.cpu().detach().numpy()
                 
-        return loss.cpu().detach().numpy()
+        return logging_dict
         
         
-    batch_function()
+    for e in tqdm(range(start_epoch,1+epochs)):
+        start=time.time()
+        big_logging_dict=defaultdict(list)
+        for b, batch in enumerate(train_loader):
+            logging_dict=batch_function(batch,True,b==0 and e==start_epoch)
+            for k,v in logging_dict.items():
+                big_logging_dict[k].append(v)
+        end=time.time()
+        print(f" epoch {e} elapsed {end-start}")
+        for k,v in big_logging_dict.items():
+            print(k,v)
+        if istopk:
+            sae_model.top_k=max(sae_model.top_k-k_step*nb_concepts,final_k*nb_concepts)
+        val_logging_dict=defaultdict(list)
+        save(e)
+        if e%10==0:
+            for b,batch in enumerate(val_loader):
+                logging_dict=batch_function(batch,False,False)
+                for k,v in logging_dict.items():
+                    val_logging_dict[k].append(v)
+    big_logging_dict=defaultdict(list)
+    for b, batch in enumerate(test_loader):
+        logging_dict=batch_function(batch,False,False)
+        for k,v in logging_dict.items():
+            big_logging_dict[k].append(v)
+    end=time.time()
+    print(f" testing elapsed {end-start}")
+    for k,v in big_logging_dict.items():
+        print(k,v)
+                
+                
     
     #testing !
     # try it with *just* the sae trained here
