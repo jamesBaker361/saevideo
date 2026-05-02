@@ -126,7 +126,7 @@ class LatentLocalDataset(torch.utils.data.Dataset):
         diff=outputs-inputs
         try:
             mask=npz_dict["mask."+self.model_layer+".transformer_blocks.0.attn2.processor"]
-            print("mask shape ",mask.shape)
+            #print("mask shape ",mask.shape)
             mask = (mask - mask.min()) / (mask.max() - mask.min() + 1e-8)
             mask[mask < 0.5] = 0.
             mask[mask>1e-4]=1.
@@ -136,9 +136,9 @@ class LatentLocalDataset(torch.utils.data.Dataset):
             raise e
         
         valid = (mask != 0)
-        print("valid shape ",valid.shape)
+        #print("valid shape ",valid.shape)
         diff = diff[:, :, valid]
-        print("diff[:, :, valid] shape ",diff.shape)
+        #print("diff[:, :, valid] shape ",diff.shape)
         
         diff=torch.tensor(diff).permute(0,2,1).flatten(0,1) #b,c,h,w -> bhw,c
         dino=torch.tensor(npz_dict["dino"])
