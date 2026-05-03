@@ -224,7 +224,10 @@ def main(args):
     
     sae_model:SAE=sae_model_class(c,args.nb_concepts,device=device)
     if sae_model_class==TopKSAE:
-        k_step=(initial_k-final_k)/(epochs//2)
+        try:
+            k_step=(initial_k-final_k)/(epochs//2)
+        except ZeroDivisionError: #in dev, we might want 0 epochs
+            k_step=0
         print(f"start {initial_k*nb_concepts} end: {final_k*nb_concepts} step {nb_concepts*k_step} ")
         sae_model.top_k=int(initial_k*nb_concepts)
         
