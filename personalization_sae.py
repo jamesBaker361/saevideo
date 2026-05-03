@@ -81,7 +81,7 @@ def generate(device,
     module_dict={}
     for layer,mod in unet.named_modules():
         if layer in block_list:
-            mod.setattr(INFERENCE_COUNTER,num_inference_steps)
+            setattr(mod,INFERENCE_COUNTER,num_inference_steps)
             module_dict[layer]=mod
             def hook(module,input, output):
                 #TODO: mask?
