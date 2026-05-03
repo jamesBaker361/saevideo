@@ -211,6 +211,8 @@ def main(args):
     
     train_loader,test_loader,val_loader=random_split(dataset,[0.9,0.05,0.05])
     
+    print("n samples ",len(train_loader))
+    
     for batch in train_loader:
         break
     
@@ -408,7 +410,7 @@ def main(args):
         end=time.time()
         print(f" epoch {e} elapsed {end-start}")
         for k,v in big_logging_dict.items():
-            print(k,v)
+            print(k,np.mean(v))
         if istopk:
             sae_model.top_k=int(max(sae_model.top_k-k_step*nb_concepts,final_k*nb_concepts))
         val_logging_dict=defaultdict(list)
