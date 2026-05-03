@@ -255,26 +255,22 @@ def main(args):
     else:
         optimizer,sae_model,train_loader,test_loader,val_loader = accelerator.prepare(optimizer,sae_model,train_loader,test_loader,val_loader)
 
-    os.makedirs(save_subdir,exist_ok=True)
-    save_subdir=os.path.join("sae_model",args.prefix)
-    os.makedirs(save_subdir,exist_ok=True)
-    save_subdir=os.path.join("sae_model",args.prefix,args.model_layer)
-    os.makedirs(save_subdir,exist_ok=True)
+    os.makedirs(save_dir,exist_ok=True)
     
 
 
     def save(epoch: int):
-        os.makedirs(save_subdir, exist_ok=True)
+        os.makedirs(save_dir, exist_ok=True)
 
-        weights_path = os.path.join(save_subdir, "weights.pt")
-        config_path = os.path.join(save_subdir, "config.json")
+        weights_path = os.path.join(save_dir, "weights.pt")
+        config_path = os.path.join(save_dir, "config.json")
 
         # save model weights
         torch.save(sae_model.state_dict(), weights_path)
 
         # optional DINO weights
         if args.use_dino:
-            dino_weights_path = os.path.join(save_subdir, "dino_weights.pt")
+            dino_weights_path = os.path.join(save_dir, "dino_weights.pt")
             torch.save(dino_sae_model.state_dict(), dino_weights_path)
 
         # save config
@@ -285,7 +281,7 @@ def main(args):
 
 
     def load(*_args,**_kwargs):
-        load_dir=save_subdir
+        load_dir=save_dir
         weights_path = os.path.join(load_dir, "weights.pt")
         config_path = os.path.join(load_dir, "config.json")
         try:
