@@ -401,6 +401,7 @@ def main(args):
         return logging_dict
         
     print("starting at epoch ",start_epoch)
+    e=-1
     for e in tqdm(range(start_epoch,1+epochs)):
         start=time.time()
         big_logging_dict=defaultdict(list)
