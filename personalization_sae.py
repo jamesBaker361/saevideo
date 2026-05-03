@@ -69,11 +69,10 @@ def generate(device,
         # load weights
         sae_dict[block].load_state_dict(torch.load(weights_path))
 
-            # optional DINO
-        if args.use_dino:
-            dino_weights_path = os.path.join(load_dir, "dino_weights.pt")
-            if os.path.exists(dino_weights_path):
-                dino_sae_dict[block].load_state_dict(torch.load(dino_weights_path))
+
+        dino_weights_path = os.path.join(load_dir, "dino_weights.pt")
+        if os.path.exists(dino_weights_path):
+            dino_sae_dict[block].load_state_dict(torch.load(dino_weights_path))
                 
     CACHED_ACTIVATIONS="cached_activations"
     CACHED_OUTPUTS="cached_outputs"
@@ -160,8 +159,22 @@ def main(args):
     size:int=args.size
     subset:str=args.subset
     api,accelerator,device=repo_api_init(args)
+    block_list=[
+            "down_blocks.0.attentions.0",
+            "down_blocks.1.attentions.0",
+            "down_blocks.2.attentions.0",
+            "down_blocks.0.attentions.1",
+            "down_blocks.1.attentions.1",
+            "down_blocks.2.attentions.1",
+            "mid_block.attentions.0",
+            "up_blocks.1.attentions.0",
+            "up_blocks.2.attentions.0",
+            "up_blocks.1.attentions.1",
+            "up_blocks.2.attentions.1",
+        ]
+    dir_list=["sae_"+b for b in block_list]
     generate(
-        device,args.size,args.nb_concepts,[],[],8,5,2,0.5,accelerator,subset,10
+        device,args.size,args.nb_concepts,block_list,dir_list,8,5,2,0.5,accelerator,subset,10
     )     
 
 
