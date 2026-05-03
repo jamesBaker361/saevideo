@@ -41,11 +41,12 @@ def generate(device,
              final_step:int,
              weight:float,
              accelerator:Accelerator,
+             subset:str,
              limit:int=-1,
              checkpoint:str="SimianLuo/LCM_Dreamshaper_v7"):
     
     pipe=DiffusionPipeline.from_pretrained(checkpoint).to(device)
-    data=PersonaDataset(args.subset,(size,size),keyword=False)
+    data=PersonaDataset(subset,(size,size),keyword=False)
     evaluator=CLIPEvaluator(device)
     
     assert len(block_list)==len(dir_list), "len(block_list)!=len(dir_list)"
@@ -153,12 +154,14 @@ def generate(device,
 parser=default_parser()
 parser.add_argument("--size",type=int,default=256)
 parser.add_argument("--nb_concepts",type=int,default=10000)
+parser.add_argument("--subset",type=str,default="subject",help="subject or object or face")
 
 def main(args):
     size:int=args.size
+    subset:str=args.subset
     api,accelerator,device=repo_api_init(args)
     generate(
-        device,args.size,args.nb_concepts,[],[],8,5,2,0.5,accelerator,10
+        device,args.size,args.nb_concepts,[],[],8,5,2,0.5,accelerator,subset,10
     )     
 
 
