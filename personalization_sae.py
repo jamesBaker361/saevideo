@@ -52,14 +52,14 @@ def generate(device,
     assert len(block_list)==len(dir_list), "len(block_list)!=len(dir_list)"
     shape_dict=get_shape_dict(checkpoint,device,size)
     sae_dict={
-        block : TopKSAE(shape_dict[block][1],nb_concepts) for block in block_list
+        block : TopKSAE(shape_dict[block][1],nb_concepts,device=device) for block in block_list
     }
     img = Image.new("RGB", (512, 512), color=(255, 255, 255))
     dino=get_last_hidden_states(img,dino_processor,dino_model).to(device)
     print("dino size ",dino.size())
     (b,n,dc)=dino.size()
     dino_sae_dict={
-        block : TopKSAE(dc,nb_concepts) for block in block_list
+        block : TopKSAE(dc,nb_concepts,device=device) for block in block_list
     }
     unet:UNet2DConditionModel=pipe.unet
     device,dtype=get_unet_device_dtype(unet)
@@ -68,11 +68,13 @@ def generate(device,
         config_path = os.path.join(load_dir, "config.json")
         # load weights
         sae_dict[block].load_state_dict(torch.load(weights_path))
+        sae_dict[block]=sae_dict[block].to(device)
 
 
         dino_weights_path = os.path.join(load_dir, "dino_weights.pt")
         if os.path.exists(dino_weights_path):
             dino_sae_dict[block].load_state_dict(torch.load(dino_weights_path))
+            dino_sae_dict[block]=dino_sae_dict[block].to(device)
                 
     CACHED_ACTIVATIONS="cached_activations"
     CACHED_OUTPUTS="cached_outputs"
