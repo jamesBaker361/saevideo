@@ -99,7 +99,7 @@ def generate(device,
                     
                 mask=torch.ones(dims).unsqueeze(0).unsqueeze(0)
                 activations=getattr(module,CACHED_ACTIVATIONS)
-                activations=activations.unsqueeze(0).unsqueeze(-1).unsqueeze(-1).expand(* dims)
+                activations=activations.unsqueeze(-1).unsqueeze(-1).expand(* dims)
                 mask*=weight
                 mask=mask.to(device,dtype)
                 
