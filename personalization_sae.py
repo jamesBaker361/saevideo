@@ -93,13 +93,13 @@ def generate(device,
                 if steps> start_step or steps<final_step:
                     return output
                 if type(output)==tuple:
-                    dims=output[0].size()[-2:]
+                    dims=output[0].size()
                 else:
-                    dims=output.size()[-2:]
+                    dims=output.size()
                     
                 mask=torch.ones(dims).unsqueeze(0).unsqueeze(0)
                 activations=getattr(module,CACHED_ACTIVATIONS)
-                activations=activations.unsqueeze(0).unsqueeze(-1).unsqueeze(-1).expand(* output.size())
+                activations=activations.unsqueeze(0).unsqueeze(-1).unsqueeze(-1).expand(* dims)
                 mask*=weight
                 mask=mask.to(device,dtype)
                 
