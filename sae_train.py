@@ -344,7 +344,6 @@ def main(args):
         logging_dict={} 
         if args.use_dino:
             dino=batch["dino"].to(device)
-            dino=dino.flatten(0,1)
             if verbose:
                 print("dino ",dino.size())
         if training:
