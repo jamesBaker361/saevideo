@@ -46,6 +46,7 @@ def generate(device,
              checkpoint:str="SimianLuo/LCM_Dreamshaper_v7"):
     
     pipe=DiffusionPipeline.from_pretrained(checkpoint).to(device)
+    setattr(pipe,"safety_checker",None)
     data=PersonaDataset(subset,(size,size),keyword=False)
     evaluator=CLIPEvaluator(device)
     
