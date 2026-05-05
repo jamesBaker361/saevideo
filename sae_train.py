@@ -405,7 +405,7 @@ def main(args):
         start=time.time()
         big_logging_dict=defaultdict(list)
         for b, batch in enumerate(train_loader):
-            if b==e//8:
+            if b==len(dataset)//8:
                 print(f"elapsed {time.time()-start} seconds for {b} samples")
             if b==limit:
                 break
