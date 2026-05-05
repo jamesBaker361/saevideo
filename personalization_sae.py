@@ -161,6 +161,7 @@ parser.add_argument("--subset",type=str,default="subject",help="subject or objec
 def main(args):
     size:int=args.size
     subset:str=args.subset
+    limit:int=args.limit
     api,accelerator,device=repo_api_init(args)
     block_list=[
             "down_blocks.0.attentions.0",
@@ -177,7 +178,7 @@ def main(args):
         ]
     dir_list=["sae_"+b for b in block_list]
     generate(
-        device,args.size,args.nb_concepts,block_list,dir_list,8,5,2,0.5,accelerator,subset,10
+        device,args.size,args.nb_concepts,block_list,dir_list,8,5,2,0.5,accelerator,subset,limit
     )     
 
 
