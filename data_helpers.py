@@ -65,9 +65,9 @@ class PersonaDataset(Dataset):
     def __getitem__(self, index):
         return {
             "image":self.image_processor.preprocess(
-                Image.open(self.path_list[index]).resize(self.size)
+                Image.open(self.path_list[index]).resize(self.size).convert("RGB")
             ),
-            "image_pil":Image.open(self.path_list[index]).resize(self.size),
+            "image_pil":Image.open(self.path_list[index]).resize(self.size).convert("RGB"),
             "text":self.text_list[index],
             "keyword":self.keyword_list[index]
         }
