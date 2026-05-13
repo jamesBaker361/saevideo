@@ -195,17 +195,17 @@ def main(args):
     limit:int=args.limit
     api,accelerator,device=repo_api_init(args)
     block_list=[
-            "down_blocks.0.attentions.0",
-            "down_blocks.1.attentions.0",
+           # "down_blocks.0.attentions.0",
+           # "down_blocks.1.attentions.0",
             "down_blocks.2.attentions.0",
-            "down_blocks.0.attentions.1",
-            "down_blocks.1.attentions.1",
+           # "down_blocks.0.attentions.1",
+           # "down_blocks.1.attentions.1",
             "down_blocks.2.attentions.1",
             "mid_block.attentions.0",
             "up_blocks.1.attentions.0",
-            "up_blocks.2.attentions.0",
+           # "up_blocks.2.attentions.0",
             "up_blocks.1.attentions.1",
-            "up_blocks.2.attentions.1",
+           # "up_blocks.2.attentions.1",
         ]
     dir_list=["sae_"+b for b in block_list]
     generate(
