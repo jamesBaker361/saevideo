@@ -21,15 +21,38 @@ from PIL import Image
 from accelerate import Accelerator
 import wandb
 import numpy as np
+from ipattn import reset_monkey,insert_monkey
+import math
 
 def get_unet_device_dtype(unet:UNet2DConditionModel):
     param = next(unet.parameters())
     return param.device, param.dtype
 
-
-            
-
-
+def get_mask(monkey:torch.nn.Module,
+             token:int,
+             kv_type:str,
+             step:int,
+             threshold:float):
+    if kv_type=="ip":
+        processor_kv=monkey.processor.kv_ip
+    elif kv_type=="str":
+        processor_kv=monkey.processor.kv
+    size=processor_kv[step].size()
+    #print('\tprocessor_kv[step].size()',processor_kv[step].size())
+    
+    avg=processor_kv[step].mean(dim=1).squeeze(0)
+    #print("\t avg ", avg.size())
+    latent_dim=int (math.sqrt(avg.size()[0]))
+    #print("\tlatent",latent_dim)
+    avg=avg.view([latent_dim,latent_dim,-1])
+    #print("\t avg ", avg.size())
+    avg=avg[:,:,token]
+    #print("\t avg ", avg.size())
+    avg_min,avg_max=avg.min(),avg.max()
+    x_norm = (avg - avg_min) / (avg_max - avg_min)  # [0,1]
+    x_norm[x_norm < threshold]=0.
+    x_norm[x_norm>0]=1.
+    return x_norm
     
 def generate(device,
              size:int,
@@ -47,6 +70,8 @@ def generate(device,
     
     pipe=DiffusionPipeline.from_pretrained(checkpoint).to(device)
     setattr(pipe,"safety_checker",None)
+    insert_monkey(pipe)
+    reset_monkey(pipe)
     data=PersonaDataset(subset,(size,size),keyword=False)
     evaluator=CLIPEvaluator(device)
     
@@ -98,7 +123,8 @@ def generate(device,
                 else:
                     dims=output.size()
                     
-                mask=torch.ones(dims[-2:]).unsqueeze(0).unsqueeze(0)
+                monkey=module.transformer_blocks[0].attn2
+                mask=get_mask(monkey,1,"str",-1,0.5)
                 activations=getattr(module,CACHED_ACTIVATIONS)
                 activations=activations.unsqueeze(-1).unsqueeze(-1).expand(* dims)
                 mask*=weight
