@@ -33,11 +33,11 @@ def get_mask(monkey:torch.nn.Module,
              kv_type:str,
              step:int,
              threshold:float):
+    print("monkey type",type(monkey))
     if kv_type=="ip":
         processor_kv=monkey.processor.kv_ip
     elif kv_type=="str":
-        processor_kv=monkey.processor.kv
-    size=processor_kv[step].size()
+        processor_kv=monkey.kv
     #print('\tprocessor_kv[step].size()',processor_kv[step].size())
     
     avg=processor_kv[step].mean(dim=1).squeeze(0)
