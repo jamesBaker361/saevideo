@@ -125,6 +125,7 @@ def generate(device,
                     dims=output.size()
                     
                 monkey=module.transformer_blocks[0].attn2
+                n_tokens=getattr(module,CACHED_N_TOKENS)
                 mask=get_mask(monkey,1,"str",-1,0.5)
                 activations=getattr(module,CACHED_ACTIVATIONS)
                 activations=activations.unsqueeze(-1).unsqueeze(-1).expand(* dims)
@@ -158,11 +159,12 @@ def generate(device,
             keyword=row["keyword"]
                 
             dino=get_last_hidden_states(image,dino_processor,dino_model)[:, 0, :].to(device)
-            n_tokens=pipe.tokenizer.encode(keyword)-2 #excluding the first and last start/end tokens
+            n_tokens=len(pipe.tokenizer.encode(keyword))-2 #excluding the first and last start/end tokens
             for layer in block_list:
                 activations=sae_dict[layer].decode(dino_sae_dict[layer].encode(dino)[1])
                 setattr(module_dict[layer],CACHED_ACTIVATIONS,activations)
                 setattr(module_dict[layer],INFERENCE_COUNTER,num_inference_steps)
+                setattr(module_dict[layer],CACHED_N_TOKENS,n_tokens)
                 
             result=pipe(keyword+" "+prompt,num_inference_steps=num_inference_steps,height=size,width=size,return_dict=True,output_type="pil").images[0]
             
