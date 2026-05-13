@@ -69,6 +69,7 @@ def generate(device,
              checkpoint:str="SimianLuo/LCM_Dreamshaper_v7"):
     
     pipe=DiffusionPipeline.from_pretrained(checkpoint).to(device)
+    pipe.load_ip_adapter("h94/IP-Adapter", subfolder="models", weight_name="ip-adapter_sd15.bin")
     setattr(pipe,"safety_checker",None)
     insert_monkey(pipe)
     reset_monkey(pipe)
