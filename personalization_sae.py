@@ -29,7 +29,7 @@ def get_unet_device_dtype(unet:UNet2DConditionModel):
     return param.device, param.dtype
 
 def get_mask(monkey:torch.nn.Module,
-             token:int,
+             n_tokens:int,
              kv_type:str,
              step:int,
              threshold:float):
@@ -46,8 +46,8 @@ def get_mask(monkey:torch.nn.Module,
     #print("\tlatent",latent_dim)
     avg=avg.view([latent_dim,latent_dim,-1])
     #print("\t avg ", avg.size())
-    avg=avg[:,:,token]
-    #print("\t avg ", avg.size())
+    avg=avg[:,:,1:1+n_tokens].means(-1)
+    print("\t avg ", avg.size())
     avg_min,avg_max=avg.min(),avg.max()
     x_norm = (avg - avg_min) / (avg_max - avg_min)  # [0,1]
     x_norm[x_norm < threshold]=0.
@@ -106,6 +106,7 @@ def generate(device,
     CACHED_OUTPUTS="cached_outputs"
     SAVED_SAE="saved_sae"
     INFERENCE_COUNTER="inference_step_counter"
+    CACHED_N_TOKENS="cached_n_tokens"
     module_dict={}
     for layer,mod in unet.named_modules():
         if layer in block_list:
@@ -157,12 +158,13 @@ def generate(device,
             keyword=row["keyword"]
                 
             dino=get_last_hidden_states(image,dino_processor,dino_model)[:, 0, :].to(device)
+            n_tokens=pipe.tokenizer.encode(keyword)-2 #excluding the first and last start/end tokens
             for layer in block_list:
                 activations=sae_dict[layer].decode(dino_sae_dict[layer].encode(dino)[1])
                 setattr(module_dict[layer],CACHED_ACTIVATIONS,activations)
                 setattr(module_dict[layer],INFERENCE_COUNTER,num_inference_steps)
                 
-            result=pipe(prompt,num_inference_steps=num_inference_steps,height=size,width=size,return_dict=True,output_type="pil").images[0]
+            result=pipe(keyword+" "+prompt,num_inference_steps=num_inference_steps,height=size,width=size,return_dict=True,output_type="pil").images[0]
             
             accelerator.log({
                 f"img_{r}":wandb.Image(result),
