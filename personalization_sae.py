@@ -23,30 +23,30 @@ import wandb
 import numpy as np
 from ipattn import reset_monkey,insert_monkey
 import math
+from cache_attn import insert_cache_attn, CACHED_ATTN_WEIGHTS
 
 def get_unet_device_dtype(unet:UNet2DConditionModel):
     param = next(unet.parameters())
     return param.device, param.dtype
 
-def get_mask(monkey:torch.nn.Module,
+def get_mask(module:torch.nn.Module,
              n_tokens:int,
              kv_type:str,
              step:int,
              threshold:float):
-    print("monkey type",type(monkey))
-    if kv_type=="ip":
-        processor_kv=monkey.processor.kv_ip
-    elif kv_type=="str":
-        processor_kv=monkey.kv
+    print("monkey type",type(module))
+    attn_weights=getattr(module,CACHED_ATTN_WEIGHTS)
+    print("attn weights size",attn_weights.size())
+    # q x k
+    attn_weights=attn_weights[:,:,1:1+n_tokens]
     #print('\tprocessor_kv[step].size()',processor_kv[step].size())
-    
-    avg=processor_kv[step].mean(dim=1).squeeze(0)
+    print("attn weights size",attn_weights.size())
+    avg=attn_weights.mean(dim=1).squeeze(0)
     #print("\t avg ", avg.size())
     latent_dim=int (math.sqrt(avg.size()[0]))
     #print("\tlatent",latent_dim)
     avg=avg.view([latent_dim,latent_dim,-1])
     #print("\t avg ", avg.size())
-    avg=avg[:,:,1:1+n_tokens].means(-1)
     print("\t avg ", avg.size())
     avg_min,avg_max=avg.min(),avg.max()
     x_norm = (avg - avg_min) / (avg_max - avg_min)  # [0,1]
@@ -69,10 +69,9 @@ def generate(device,
              checkpoint:str="SimianLuo/LCM_Dreamshaper_v7"):
     
     pipe=DiffusionPipeline.from_pretrained(checkpoint).to(device)
-    pipe.load_ip_adapter("h94/IP-Adapter", subfolder="models", weight_name="ip-adapter_sd15.bin")
     setattr(pipe,"safety_checker",None)
-    insert_monkey(pipe)
-    reset_monkey(pipe)
+    insert_cache_attn(pipe)
+    
     data=PersonaDataset(subset,(size,size),keyword=False)
     evaluator=CLIPEvaluator(device)
     
