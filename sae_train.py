@@ -237,13 +237,12 @@ def main(args):
        "sae" :sae_model
     }
     
-    if args.use_dino:
-        dino=batch["dino"]
-        print("dino size ",dino.size())
-        (b,dc)=dino.size() #(b,384hw)
-        dino_sae_model:SAE=sae_model_class(dc,args.nb_concepts,device=device)
-        params.extend([p for p in dino_sae_model.parameters()])
-        model_dict["dino_sae"]=dino_sae_model
+    dino=batch["dino"]
+    print("dino size ",dino.size())
+    (b,dc)=dino.size() #(b,384hw)
+    dino_sae_model:SAE=sae_model_class(dc,args.nb_concepts,device=device)
+    params.extend([p for p in dino_sae_model.parameters()])
+    model_dict["dino_sae"]=dino_sae_model
         
     act=batch["act"]
     with accelerator.autocast():
