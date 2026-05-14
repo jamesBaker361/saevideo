@@ -56,13 +56,13 @@ class CacheAttentionProcessor(AttnProcessor2_0):
         query = query.view(batch_size, -1, attn.heads, head_dim).transpose(1, 2)
 
         key = key.view(batch_size, -1, attn.heads, head_dim).transpose(1, 2)
+
         value = value.view(batch_size, -1, attn.heads, head_dim).transpose(1, 2)
 
         if attn.norm_q is not None:
             query = attn.norm_q(query)
         if attn.norm_k is not None:
             key = attn.norm_k(key)
-
         attn_weight = (query @ key.transpose(-2, -1)) * attn.scale
         if attention_mask is not None:
             attn_weight = attn_weight + attention_mask

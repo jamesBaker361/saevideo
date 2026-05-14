@@ -31,23 +31,24 @@ def get_unet_device_dtype(unet:UNet2DConditionModel):
 
 def get_mask(module:torch.nn.Module,
              n_tokens:int,
-             kv_type:str,
-             step:int,
-             threshold:float):
-    print("monkey type",type(module))
+             threshold:float)->torch.Tensor:
+    #print("monkey type",type(module))
     attn_weights=getattr(module,CACHED_ATTN_WEIGHTS)
-    print("attn weights size",attn_weights.size())
-    # q x k
-    attn_weights=attn_weights[:,:,1:1+n_tokens]
+    #assume attn weights are B,Heads,qdim,kdim
+    #print("attn weights size",attn_weights.size())
+    attn_weights=attn_weights.mean(dim=1).squeeze(0)
+    #print("attn weights size", 42 ,attn_weights.size())
+    #b, qdim kdim
+    attn_weights=attn_weights[:,1:1+n_tokens]
+    avg=attn_weights.mean(-1)
     #print('\tprocessor_kv[step].size()',processor_kv[step].size())
-    print("attn weights size",attn_weights.size())
-    avg=attn_weights.mean(dim=1).squeeze(0)
+    #print("attn weights size",attn_weights.size())
     #print("\t avg ", avg.size())
     latent_dim=int (math.sqrt(avg.size()[0]))
     #print("\tlatent",latent_dim)
     avg=avg.view([latent_dim,latent_dim,-1])
     #print("\t avg ", avg.size())
-    print("\t avg ", avg.size())
+    #print("\t avg ", avg.size())
     avg_min,avg_max=avg.min(),avg.max()
     x_norm = (avg - avg_min) / (avg_max - avg_min)  # [0,1]
     x_norm[x_norm < threshold]=0.
@@ -126,20 +127,20 @@ def generate(device,
                     
                 monkey=module.transformer_blocks[0].attn2
                 n_tokens=getattr(module,CACHED_N_TOKENS)
-                mask=get_mask(monkey,1,"str",-1,0.5)
+                mask=get_mask(monkey,n_tokens,0.5).squeeze(-1)
                 activations=getattr(module,CACHED_ACTIVATIONS)
                 activations=activations.unsqueeze(-1).unsqueeze(-1).expand(* dims)
                 mask*=weight
                 mask=mask.to(device,dtype)
                 
                 if type(output)==tuple:
-                    out=(1-mask)*output[0] + mask*activations
+                    out=(1-mask)*output[0] + mask*(activations+input)
                     if len(output)==1:
                         return (out,)
                     else:
                         return (out, * output[1:])
                 else:
-                    return (1-mask)*output + mask*activations
+                    return (1-mask)*output + mask*(activations+input)
                 
             mod.register_forward_hook(hook)
     
