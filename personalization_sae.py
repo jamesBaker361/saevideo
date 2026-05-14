@@ -1,27 +1,21 @@
 import os
-import argparse
 from experiment_helpers.gpu_details import print_details
-from experiment_helpers.saving_helpers import save_and_load_functions
 from experiment_helpers.argprint import print_args
 import torch
 
 import time
-import torch.nn.functional as F
-from diffusers import DiffusionPipeline,UNet2DConditionModel,AutoencoderKL
+from diffusers import DiffusionPipeline,UNet2DConditionModel
 
-from experiment_helpers.loop_decorator import optimization_loop
-from experiment_helpers.data_helpers import split_data
 from experiment_helpers.init_helpers import default_parser,repo_api_init
 from data_helpers import PersonaDataset
 from eval_pcs import CLIPEvaluator
 from unet_autopsy import get_shape_dict
-from overcomplete.sae import TopKSAE,QSAE, JumpSAE, BatchTopKSAE,losses,SAE
+from overcomplete.sae import TopKSAE
 from dino_extract import dino_model,dino_processor,get_last_hidden_states
 from PIL import Image
 from accelerate import Accelerator
 import wandb
 import numpy as np
-from ipattn import reset_monkey,insert_monkey
 import math
 from cache_attn import insert_cache_attn, CACHED_ATTN_WEIGHTS
 
@@ -74,7 +68,6 @@ def generate(device,
     insert_cache_attn(pipe)
     
     data=PersonaDataset(subset,(size,size),keyword=False)
-    evaluator=CLIPEvaluator(device)
     
     assert len(block_list)==len(dir_list), "len(block_list)!=len(dir_list)"
     shape_dict=get_shape_dict(checkpoint,device,size)
@@ -134,13 +127,13 @@ def generate(device,
                 mask=mask.to(device,dtype)
                 
                 if type(output)==tuple:
-                    out=(1-mask)*output[0] + mask*(activations+input)
+                    out=(1-mask)*output[0] + mask*(activations+input[0])
                     if len(output)==1:
                         return (out,)
                     else:
                         return (out, * output[1:])
                 else:
-                    return (1-mask)*output + mask*(activations+input)
+                    return (1-mask)*output + mask*(activations+input[0])
                 
             mod.register_forward_hook(hook)
     
