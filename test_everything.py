@@ -17,7 +17,8 @@ from data_helpers import PersonaDataset
 from eval_pcs import CLIPEvaluator
 import numpy as np
 from datasets import Dataset
-
+import wandb
+import accelerate
 
 
 dino_processor = AutoImageProcessor.from_pretrained("facebook/dinov3-vits16-pretrain-lvd1689m")
@@ -212,6 +213,8 @@ if __name__=="__main__":
     clip_text_alignment=[]
     clip_image_alignment=[]
     hf_data={"src":[],"prompt":[],"result":[]}
+    accelerator=accelerate.Accelerator(log_with="wandb")
+    accelerator.init_trackers("everything",config=vars(args))
     with torch.no_grad():
     
         for r,row in enumerate(data):
