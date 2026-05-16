@@ -242,6 +242,11 @@ if __name__=="__main__":
             
         print(np.mean(clip_text_alignment))
         print(np.mean(clip_image_alignment))
+        
+        accelerator.log({
+            "clip-t":np.mean(clip_text_alignment),
+            "clip-i":np.mean(clip_image_alignment)
+        })
     
         Dataset.from_dict(hf_data).push_to_hub(f"jlbaker361/{args.name}")
     print("all done!!!")
