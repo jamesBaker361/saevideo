@@ -1,12 +1,5 @@
 import os
-import subprocess
 
-def install(package):
-    subprocess.check_call([os.sys.executable, "-m", "pip", "install", package])
-
-with open("requirements.txt","r") as file:
-    for line in file.readlines():
-        install(line.strip())
 
 import torch
 from PIL import Image
