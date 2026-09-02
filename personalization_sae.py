@@ -1,3 +1,5 @@
+# I THINK but am not sure that this is what evaluates sae_train.py
+
 import os
 from experiment_helpers.gpu_details import print_details
 from experiment_helpers.argprint import print_args
