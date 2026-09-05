@@ -152,17 +152,21 @@ def main(args):
             if mask is None:
                 continue
 
-            # Flatten mask to find best patch
-            flat_mask = mask.reshape(-1)                   # [seq_len]
-            best_idx = int(flat_mask.argmax())
-            relative_weight = float(flat_mask[best_idx])
+            
 
             # UNet features from the hook (last denoising step)
-            unet_feats = cached["features"][0]             # [seq_len, hidden_dim]
-            unet_feature = unet_feats[best_idx].cpu()
+            unet_feats = cached["features"]
+            print(unet_feats.size())
+            #unet_feats=F.interpolate(unet_feats,mask.size()[-2:])
+            mask=F.interpolate(mask.unsqueeze(0).unsqueeze(0),unet_feats.size()[-2:] )[0,0]
+            
+            print(mask.size())
 
-            all_features.append(unet_feature)
-            all_weights.append(relative_weight * scale)
+            mask=torch.unbind(mask,0)
+            unet_feats=torch.unbind(unet_feats,0)
+
+            all_features.extend(unet_feats)
+            all_weights.extend(mask * scale)
 
     assert all_features, "No training pairs collected — check layer name and processor setup"
 
